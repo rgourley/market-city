@@ -68,13 +68,17 @@ You need a Massive API key. The key stays on the server, and the page only ever 
 
 | Plan | Works | What the page shows by default |
 |---|---|---|
-| Stocks Basic (free) | No | Nothing. It allows 5 calls a minute and has no snapshots, so the city can't build |
+| Stocks Basic (free) | Lite mode | 12 towers, one per sector, from the last full session. No live view |
 | Stocks Starter | Yes | 15 minutes delayed |
 | Stocks Developer | Yes | 15 minutes delayed |
 | Stocks Advanced | Yes | 15 minutes delayed |
 | Business plans | Yes | 15 minutes delayed |
 
 Plans and prices are on [massive.com/pricing](https://massive.com/pricing).
+
+### Lite mode for the free plan
+
+Set `MASSIVE_PLAN=basic` to run on Stocks Basic. The free plan allows 5 calls a minute and has no snapshots, so lite mode tracks only SPY and the 11 sector ETFs, with one tower per sector. It spaces requests 12.5 seconds apart, shows the last full session, and has no live view. The city appears once SPY loads and fills in one sector at a time.
 
 ### Showing it to other people
 
