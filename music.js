@@ -298,6 +298,15 @@ export function createMusic(Tone) {
   }
   applyPreset();
 
+  // The tempo follows traffic and changes only when a song starts.
+  // A tempo ramp on every bar adds about 9 events a second to the Tone.js clock timeline.
+  // After a minute or two, the clock loop then cannot end, and the page freezes.
+  function setTempo() {
+    const [lo, hi] = preset.bpm;
+    transport.bpm.value = lo + (Math.min(state.traffic, 4) / 4) * (hi - lo);
+  }
+  setTempo();
+
   // The chord root follows the song's progression. It changes every chordBars bars.
   function chordRoot() {
     return song.prog[Math.floor(step / 16 / preset.harmony.chordBars) % song.prog.length];
@@ -325,7 +334,7 @@ export function createMusic(Tone) {
     // A song ends after its last section. One silent bar follows, then a new song starts with a new seed.
     if (sc.name === "end") {
       if (s === 0) { pad.releaseAll(time); swellPad.releaseAll(time); }
-      if (s === 15) { song = compose(Math.floor(Math.random() * 10000), preset, state.spy >= 0); step = -1; onSong(); }
+      if (s === 15) { song = compose(Math.floor(Math.random() * 10000), preset, state.spy >= 0); step = -1; setTempo(); onSong(); }
       step++;
       return;
     }
@@ -337,8 +346,6 @@ export function createMusic(Tone) {
     const on = (flag, fadeAt) => Boolean(sc[flag]) && !(sc.fade && progress >= fadeAt);
 
     if (s === 0) {
-      const [lo, hi] = preset.bpm;
-      transport.bpm.rampTo(lo + (Math.min(state.traffic, 4) / 4) * (hi - lo), 2, time);
       transport.swing = preset.swing ?? 0.04 + w * 0.25;
       bassFilter.frequency.rampTo(220 + mag * 2600 + w * 600 + (sc.sweep ? progress * 1500 : 0), 1, time);
       delay.feedback.rampTo(sc.swell && !sc.kick ? 0.55 : 0.35, 1, time);
@@ -456,6 +463,7 @@ export function createMusic(Tone) {
       preset = PRESETS[themeName] ?? PRESETS.cyberpunk;
       song = compose(Math.floor(Math.random() * 10000), preset, state.spy >= 0);
       applyPreset();
+      setTempo();
       pad.releaseAll();
       swellPad.releaseAll();
       keys.releaseAll();
