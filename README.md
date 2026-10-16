@@ -62,7 +62,21 @@ The default view is today. During market hours it runs live and refreshes every 
 
 ## Running it
 
-You need a Massive API key on Stocks Starter or above. Starter and Developer data is 15 minutes delayed, and the page labels it that way. Real-time needs Stocks Advanced or a business plan. The free Stocks Basic plan allows 5 calls a minute and has no snapshots, so it can't run the city. The key stays on the server. The page only ever calls `/api/today`, never Massive directly.
+You need a Massive API key. The key stays on the server, and the page only ever calls `/api/today` and `/api/examples`.
+
+### Which Massive plans work
+
+| Plan | Works | Live view |
+|---|---|---|
+| Stocks Basic (free) | No | It allows 5 calls a minute and has no snapshots, so the city can't build |
+| Stocks Starter | Yes | 15 minutes delayed, and the page labels it that way |
+| Stocks Developer | Yes | 15 minutes delayed, and the page labels it that way |
+| Stocks Advanced | Yes | Real time |
+| Business plans | Yes | Real time |
+
+Plans and prices are on [massive.com/pricing](https://massive.com/pricing).
+
+### Start it
 
 ```bash
 cp .env.example .env.local
