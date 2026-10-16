@@ -180,7 +180,6 @@ export function createMusic(Tone) {
   let preset = PRESETS.cyberpunk;
   let song = compose(1, preset, true);
   let step = 0;
-  let playing = false;
 
   // The master chain keeps the music a background bed: low level, soft highs and a gentle compressor.
   const out = new Tone.Volume(-14);
@@ -430,8 +429,8 @@ export function createMusic(Tone) {
     get section() { return section.name; },
     // The page sets this callback. It runs when a new song starts.
     set onSong(fn) { onSong = fn; },
-    async start() { await Tone.start(); playing = true; transport.start(); },
-    stop() { playing = false; transport.pause(); },
+    async start() { await Tone.start(); transport.start(); },
+    stop() { transport.pause(); },
     // The rumble starts after a random delay of 0.2 to 1 second, like a strike some distance away.
     thunder() {
       const now = Tone.now();
@@ -460,9 +459,9 @@ export function createMusic(Tone) {
       pad.releaseAll();
       swellPad.releaseAll();
       keys.releaseAll();
-      transport.stop();
+      // The clock keeps running. A stop and a fast start can break the Tone.js clock timeline.
+      // The song restarts from bar 1 because the step counter goes back to 0.
       step = 0;
-      if (playing) transport.start("+0.05");
     },
   };
 }
