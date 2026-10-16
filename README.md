@@ -66,19 +66,19 @@ You need a Massive API key. The key stays on the server, and the page only ever 
 
 ### Which Massive plans work
 
-| Plan | Works | What the page shows |
+| Plan | Works | Data on the plan |
 |---|---|---|
-| Stocks Basic (free) | No | It allows 5 calls a minute and has no snapshots, so the city can't build |
+| Stocks Basic (free) | No | 5 calls a minute and no snapshots, so the city can't build |
 | Stocks Starter | Yes | 15 minutes delayed |
 | Stocks Developer | Yes | 15 minutes delayed |
-| Stocks Advanced | Yes | 15 minutes delayed by default. The data is real time, but the plan is for individual, non-professional use |
-| Stocks Business | Yes | Real time, with `DISPLAY_DELAY_MINUTES=0` |
+| Stocks Advanced | Yes | Real time |
+| Business plans | Yes | See [massive.com/business](https://massive.com/business) |
 
 Plans and prices are on [massive.com/pricing](https://massive.com/pricing).
 
 ### Showing it to other people
 
-Massive labels Starter, Developer and Advanced for individual use. A page anyone can open shows the data to other people, so the server holds back today's newest 15 minutes by default, and the page labels the view as delayed. Set `DISPLAY_DELAY_MINUTES=0` only if your plan allows real-time display to the public, for example Stocks Business. Check Massive's terms before you host it publicly.
+By default the server holds back today's newest 15 minutes, and the page labels the view as delayed. Set `DISPLAY_DELAY_MINUTES=0` to show real time. What your plan lets you show to other people is set by Massive, not by this repo: check [massive.com/pricing](https://massive.com/pricing) and [Massive's terms](https://massive.com/legal/terms) before you host it publicly.
 
 ### Start it
 
@@ -108,6 +108,6 @@ The session refreshes on demand, at most once a minute, and only while the marke
 
 ## Data
 
-The repo holds no market data. `universe.json` lists the sectors, the 18 tickers in each, and the sample dates. The server builds the sample days and the market caps from your Massive key on the first request and caches them for a year. The live day is built once a day and refreshed once a minute while the market is open. Every viewer shares the same cache.
+The repo holds no market data. `universe.json` lists the sectors, the 18 tickers in each, and the sample dates. The server builds the market caps from your Massive key on the first request, and each sample day the first time someone picks it. Both stay cached for a year. The live day is built once a day and refreshed once a minute while the market is open. Every viewer shares the same cache.
 
 `constituents.json` is the S&P 500 with GICS sectors, from Wikipedia's list of S&P 500 companies. The 18 tickers per sector are the largest by market cap.

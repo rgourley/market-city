@@ -1,4 +1,4 @@
-// The Vercel function for GET /api/examples: the sample days, the sector list and the market caps.
+// The Vercel function for /api/examples: the sector list, the market caps and the sample days.
 // The data lives in the Vercel Runtime Cache for a year. The CDN keeps each response for a day.
 import { getCache } from "@vercel/functions";
 import universe from "../universe.json" with { type: "json" };
@@ -11,12 +11,17 @@ const examples = createExamples({
   store: { get: (k) => cache.get(k), set: (k, v, ttl) => cache.set(k, v, { ttl, name: "market-city-examples" }) },
 });
 
+// GET /api/examples gives the sectors, caps and sample dates. GET /api/examples?date=YYYY-MM-DD gives one sample day.
 export async function GET(request) {
-  if (new URL(request.url).search) {
+  const url = new URL(request.url);
+  if ([...url.searchParams.keys()].some((k) => k !== "date")) {
     return Response.json({ error: "Unknown query parameter" }, { status: 400, headers: { "Cache-Control": "public, s-maxage=3600" } });
   }
   try {
-    return Response.json(await examples.payload(), { headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" } });
+    const date = url.searchParams.get("date");
+    const body = date ? await examples.day(date) : await examples.universePayload();
+    if (!body) return Response.json({ error: "Unknown sample date" }, { status: 404, headers: { "Cache-Control": "public, s-maxage=3600" } });
+    return Response.json(body, { headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" } });
   } catch (err) {
     console.error({ err: err.message }, "examples failed");
     // The client gets a generic message. The details stay in the function log.

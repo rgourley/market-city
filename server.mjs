@@ -58,8 +58,10 @@ createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   try {
     if (url.pathname === "/api/examples") {
-      const body = Buffer.from(JSON.stringify(await examples.payload()));
-      send(req, res, 200, { "content-type": "application/json", "cache-control": "public, max-age=3600" }, body);
+      const date = url.searchParams.get("date");
+      const payload = date ? await examples.day(date) : await examples.universePayload();
+      if (!payload) { res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: "Unknown sample date" })); return; }
+      send(req, res, 200, { "content-type": "application/json", "cache-control": "public, max-age=3600" }, Buffer.from(JSON.stringify(payload)));
       return;
     }
     if (url.pathname === "/api/today") {

@@ -222,7 +222,9 @@ if (!examplesRes?.ok) {
   document.getElementById("day").textContent = "Market data is unavailable right now. Try again in a minute.";
   throw new Error(`api/examples ${examplesRes?.status ?? "network error"}`);
 }
-const data = await examplesRes.json();
+// The sample days start empty. Each one loads the first time someone picks it.
+const universeData = await examplesRes.json();
+const data = { sectors: universeData.sectors, caps: universeData.caps, days: universeData.examples.map((e) => ({ ...e, series: null })) };
 
 // ---------- Themes ----------
 // A theme sets only the look. The data mapping is the same in every theme.
@@ -1025,7 +1027,6 @@ function prepDay(d) {
   d.traffic = trafficLevel(d.series.SPY.volRatio);
   return d;
 }
-data.days.forEach(prepDay);
 
 // ---------- State ----------
 const params = new URLSearchParams(location.search);
@@ -1033,7 +1034,7 @@ const params = new URLSearchParams(location.search);
 if (params.has("debug")) window.__renderer = renderer;
 // An explicit ?day=N opens that example. Otherwise the page opens on the newest example and moves to today when it loads.
 const exampleParam = params.has("day") && params.get("day") !== "today" ? Number(params.get("day")) : null;
-let dayIdx = exampleParam ?? data.days.length - 1, minute = Number(params.get("m") ?? 0), playing = !params.has("m"), speed = 5;
+let dayIdx = -1, minute = Number(params.get("m") ?? 0), playing = !params.has("m"), speed = 5;
 // In live mode the city follows the newest minute of today. A scrub or Play leaves live mode.
 let live = false;
 // The snap flag skips the easing for one frame after a day change or a scrub.
@@ -1050,7 +1051,33 @@ const shortDay = (date) => { const [y, m, dd] = date.split("-"); return `${Numbe
 data.days.forEach((d, i) => exampleGroup.append(new Option(`${d.label} · ${shortDay(d.date)}`, String(i))));
 examplesEl.onchange = () => selectDay(examplesEl.value === "today" ? todayIdx : Number(examplesEl.value));
 
+// A sample day that has not loaded yet loads first. The city keeps showing the current day while it loads.
+const dayLoads = new Map();
+function loadExample(i) {
+  const d = data.days[i];
+  if (d.series) return Promise.resolve(d);
+  if (!dayLoads.has(i)) {
+    dayLoads.set(i, fetch(`api/examples?date=${d.date}`)
+      .then(async (res) => { if (!res.ok) throw new Error(`api/examples ${d.date} ${res.status}`); return res.json(); })
+      .then((json) => (data.days[i] = prepDay(json)))
+      .finally(() => dayLoads.delete(i)));
+  }
+  return dayLoads.get(i);
+}
 function selectDay(i) {
+  if (!data.days[i]?.series) {
+    const label = `${data.days[i].label} · ${data.days[i].date}`;
+    if (dayIdx < 0) document.getElementById("day").textContent = `Loading ${label}…`;
+    examplesEl.value = String(i);
+    loadExample(i)
+      .then(() => selectDay(i))
+      .catch((err) => {
+        console.warn({ err: err.message }, "sample day did not load");
+        document.getElementById("day").textContent = "That day is unavailable right now. Try again in a minute.";
+        syncDayControls();
+      });
+    return;
+  }
   dayIdx = i; snap = true;
   const d = data.days[i];
   live = Boolean(d.live);
@@ -1060,6 +1087,7 @@ function selectDay(i) {
   syncDayControls();
 }
 function syncDayControls() {
+  if (dayIdx < 0) return;
   examplesEl.value = todayIdx >= 0 && dayIdx === todayIdx ? "today" : String(dayIdx);
 }
 syncDayControls();
@@ -1098,11 +1126,14 @@ async function loadToday() {
   syncDayControls();
   return d;
 }
+// The first view: an explicit ?day=N, else today, else the newest sample day if today has no data.
+if (exampleParam !== null && data.days[exampleParam]) selectDay(exampleParam);
 loadToday()
-  .then((d) => { if (exampleParam === null && d.end >= 0) selectDay(todayIdx); })
+  .then((d) => { if (exampleParam === null) selectDay(d.end >= 0 ? todayIdx : universeData.examples.length - 1); })
   .catch((err) => {
     todayOpt.textContent = "Today · no data";
     console.warn({ err: err.message }, "today is not available; run server.mjs for live data");
+    if (exampleParam === null) selectDay(universeData.examples.length - 1);
   });
 // The poll also runs outside market hours, so the page moves from the last session to today at the open.
 setInterval(() => {
@@ -1259,6 +1290,7 @@ function updateTip() {
   if (!hit) { tip.style.display = "none"; return; }
   const t = hit.object === towerMesh ? towers[hit.instanceId] : hit.object.userData.tower;
   const d = data.days[dayIdx], m = Math.floor(minute);
+  if (!d?.series) { tip.style.display = "none"; return; }
   if (!d.series[t.ticker]) {
     tip.innerHTML = `<b>${t.ticker}</b> <span style="color:var(--muted)">no data on ${d.date}</span>`;
     tip.style.display = "block";
@@ -1362,6 +1394,13 @@ addEventListener("keyup", (e) => { if (e.key === "Shift") shiftHeld = false; });
 // ---------- Loop ----------
 const clock = new THREE.Clock();
 function tick() {
+  // Until the first day loads, the scene only renders and turns. The data parts of the loop wait.
+  if (!data.days[dayIdx]?.series) {
+    controls.update(Math.min(clock.getDelta(), 0.05));
+    if (heroVisible) composer.render();
+    requestAnimationFrame(tick);
+    return;
+  }
   const dt = Math.min(clock.getDelta(), 0.05);
   const now = performance.now() / 1000;
   const ease = (rate) => (snap ? 1 : 1 - Math.exp(-dt * rate));
