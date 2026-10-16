@@ -98,12 +98,12 @@ The code that talks to Massive lives in `lib/today.mjs`, and each host wraps it.
 
 **Docker** (Fly.io, or any container host): `docker build -t market-city .`, then run it with `-e MASSIVE_API_KEY=...` and port 8811.
 
-**Vercel**: import the repo and add `MASSIVE_API_KEY` as an environment variable. The page is served as static files and `api/today.mjs` runs as a function. The session lives in the Vercel Runtime Cache, and the CDN keeps each response for 25 seconds, so a crowd of viewers shares about two function calls a minute.
+**Vercel**: import the repo and add `MASSIVE_API_KEY` as an environment variable. The page is served as static files and `api/today.mjs` runs as a function. The session lives in the Vercel Runtime Cache, and the CDN shares each response across viewers.
 
-The session refreshes on demand: a request that finds the data older than a minute refreshes it with one Massive snapshot call. Building a new day takes about 210 calls, once per day.
+The session refreshes on demand, at most once a minute, and only while the market is open.
 
 ## Data
 
-The repo holds no market data. `universe.json` lists the sectors, the 18 tickers in each, and the sample dates. The server builds the sample days and the market caps from your Massive key on the first request, about 1,050 calls, and caches them for a year. The live day costs about 210 calls to build, then one snapshot call a minute while the market is open, and nothing outside market hours.
+The repo holds no market data. `universe.json` lists the sectors, the 18 tickers in each, and the sample dates. The server builds the sample days and the market caps from your Massive key on the first request and caches them for a year. The live day is built once a day and refreshed once a minute while the market is open. Every viewer shares the same cache.
 
 `constituents.json` is the S&P 500 with GICS sectors, from Wikipedia's list of S&P 500 companies. The 18 tickers per sector are the largest by market cap.
