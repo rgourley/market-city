@@ -1,0 +1,14 @@
+{
+  "name": "market-city",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env.local server.mjs"
+  },
+  "dependencies": {
+    "@vercel/functions": "3.9.9"
+  }
+}

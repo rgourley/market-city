@@ -1,0 +1,286 @@
+{
+ "sectors": [
+  {
+   "etf": "XLK",
+   "name": "Technology",
+   "tickers": [
+    "NVDA",
+    "AAPL",
+    "MSFT",
+    "AVGO",
+    "MU",
+    "AMD",
+    "INTC",
+    "PLTR",
+    "CSCO",
+    "ORCL",
+    "LRCX",
+    "AMAT",
+    "DELL",
+    "PANW",
+    "TXN",
+    "CRWD",
+    "ANET",
+    "KLAC"
+   ]
+  },
+  {
+   "etf": "XLC",
+   "name": "Communication",
+   "tickers": [
+    "GOOGL",
+    "GOOG",
+    "META",
+    "NFLX",
+    "DIS",
+    "VZ",
+    "TMUS",
+    "T",
+    "APP",
+    "CMCSA",
+    "LYV",
+    "TTWO",
+    "SKYD",
+    "RDDT",
+    "FOXA",
+    "ECHO",
+    "FOX",
+    "OMC"
+   ]
+  },
+  {
+   "etf": "XLY",
+   "name": "Consumer Disc.",
+   "tickers": [
+    "AMZN",
+    "TSLA",
+    "HD",
+    "MCD",
+    "TJX",
+    "BKNG",
+    "SBUX",
+    "LOW",
+    "ABNB",
+    "MAR",
+    "DASH",
+    "HLT",
+    "ROST",
+    "RCL",
+    "GM",
+    "ORLY",
+    "CVNA",
+    "GRMN"
+   ]
+  },
+  {
+   "etf": "XLF",
+   "name": "Financials",
+   "tickers": [
+    "BRK.B",
+    "JPM",
+    "V",
+    "MA",
+    "BAC",
+    "MS",
+    "GS",
+    "WFC",
+    "AXP",
+    "C",
+    "SCHW",
+    "BLK",
+    "CB",
+    "PGR",
+    "SPGI",
+    "COF",
+    "CME",
+    "BNY"
+   ]
+  },
+  {
+   "etf": "XLV",
+   "name": "Health Care",
+   "tickers": [
+    "LLY",
+    "JNJ",
+    "ABBV",
+    "MRK",
+    "UNH",
+    "TMO",
+    "AMGN",
+    "GILD",
+    "ABT",
+    "PFE",
+    "DHR",
+    "ISRG",
+    "VRTX",
+    "BMY",
+    "MDT",
+    "CVS",
+    "MCK",
+    "SYK"
+   ]
+  },
+  {
+   "etf": "XLI",
+   "name": "Industrials",
+   "tickers": [
+    "CAT",
+    "GE",
+    "RTX",
+    "GEV",
+    "DE",
+    "UNP",
+    "ETN",
+    "BA",
+    "UBER",
+    "PH",
+    "LMT",
+    "ADP",
+    "TT",
+    "PWR",
+    "JCI",
+    "GD",
+    "EMR",
+    "CSX"
+   ]
+  },
+  {
+   "etf": "XLP",
+   "name": "Staples",
+   "tickers": [
+    "WMT",
+    "COST",
+    "KO",
+    "PG",
+    "PM",
+    "PEP",
+    "MO",
+    "MNST",
+    "MDLZ",
+    "CL",
+    "TGT",
+    "VYLR",
+    "KDP",
+    "ADM",
+    "SYY",
+    "KR",
+    "EL",
+    "KVUE"
+   ]
+  },
+  {
+   "etf": "XLE",
+   "name": "Energy",
+   "tickers": [
+    "XOM",
+    "CVX",
+    "COP",
+    "MPC",
+    "VLO",
+    "PSX",
+    "WMB",
+    "EOG",
+    "KMI",
+    "SLB",
+    "TRGP",
+    "OXY",
+    "OKE",
+    "FANG",
+    "BKR",
+    "DVN",
+    "EQT",
+    "HAL"
+   ]
+  },
+  {
+   "etf": "XLU",
+   "name": "Utilities",
+   "tickers": [
+    "NEE",
+    "SO",
+    "CEG",
+    "DUK",
+    "AEP",
+    "D",
+    "SRE",
+    "VST",
+    "ETR",
+    "XEL",
+    "EXC",
+    "ED",
+    "PCG",
+    "PEG",
+    "WEC",
+    "AEE",
+    "ATO",
+    "DTE"
+   ]
+  },
+  {
+   "etf": "XLRE",
+   "name": "Real Estate",
+   "tickers": [
+    "WELL",
+    "PLD",
+    "EQIX",
+    "AMT",
+    "SPG",
+    "DLR",
+    "PSA",
+    "O",
+    "VMRK",
+    "VTR",
+    "CBRE",
+    "CCI",
+    "IRM",
+    "EXR",
+    "VICI",
+    "SBAC",
+    "ESS",
+    "HST"
+   ]
+  },
+  {
+   "etf": "XLB",
+   "name": "Materials",
+   "tickers": [
+    "LIN",
+    "NEM",
+    "FCX",
+    "ECL",
+    "SHW",
+    "APD",
+    "NUE",
+    "CRH",
+    "STLD",
+    "MLM",
+    "VMC",
+    "PPG",
+    "IFF",
+    "SW",
+    "DOW",
+    "PKG",
+    "LYB",
+    "AMCR"
+   ]
+  }
+ ],
+ "examples": [
+  {
+   "date": "2025-08-18",
+   "label": "Calm"
+  },
+  {
+   "date": "2025-04-04",
+   "label": "Crash"
+  },
+  {
+   "date": "2025-04-09",
+   "label": "Rally"
+  },
+  {
+   "date": "2026-10-14",
+   "label": "Rotation"
+  }
+ ]
+}

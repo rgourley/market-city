@@ -1,0 +1,1489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  // The page can live under /city on a host site, or at / when it runs alone.
+  // The base element makes the relative URLs (music.js, api/examples, api/today) work in both places.
+  { const b = document.createElement("base"); b.href = /^\/city(\/|$)/.test(location.pathname) ? "/city/" : "/"; document.head.prepend(b); }
+</script>
+<title>Market City: the stock market as a living 3D city</title>
+<meta name="description" content="A 3D city of the stock market. Each tower is a top S&amp;P 500 stock, and its lights, weather, traffic and music follow live market data from Massive.">
+<link rel="canonical" href="https://www.robertcreative.com/city">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Market City: the stock market as a living 3D city">
+<meta property="og:description" content="Each tower is a top S&amp;P 500 stock. Lights, weather, traffic and music follow live market data.">
+<meta property="og:url" content="https://www.robertcreative.com/city">
+<meta property="og:image" content="https://www.robertcreative.com/city/docs/synthwave.jpg">
+<meta property="og:image:width" content="1600">
+<meta property="og:image:height" content="900">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05070c;
+    --surface: #0b0d14;
+    --ink: #d8dee9;
+    --text-2: #b4bac6;
+    --muted: #7a8599;
+    --panel: rgba(8, 11, 18, 0.72);
+    --line: rgba(255, 255, 255, 0.08);
+    --up: #3ddc84;
+    --down: #ff5a5a;
+    --sans: "Inter", system-ui, -apple-system, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--sans); }
+  a { color: inherit; }
+
+  /* The hero holds the live city. Full screen makes it fill the display. */
+  #frame { position: relative; width: 100%; height: min(78vh, 860px); min-height: 420px; overflow: hidden; background: var(--bg); font: 12px/1.4 var(--mono); }
+  #frame:fullscreen { height: 100vh; }
+  #frame:-webkit-full-screen { height: 100vh; width: 100vw; }
+  canvas { display: block; }
+  .hud { position: absolute; top: 14px; left: 16px; pointer-events: none; text-shadow: 0 1px 8px rgba(0,0,0,.8); }
+  .hud .credit { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--muted); font-size: 10px; text-decoration: none; pointer-events: auto; }
+  .hud .credit svg { height: 8px; width: auto; color: var(--ink); }
+  .hud .credit:hover { color: var(--ink); }
+  .hud .day { font-weight: 600; letter-spacing: .02em; }
+  .hud .meta { color: var(--muted); }
+  .hud .hint { margin-top: 4px; color: var(--muted); }
+  .hud .live { color: #ff4d4d; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  .controls button:disabled { opacity: 0.4; cursor: default; }
+  #tip { position: absolute; pointer-events: none; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; backdrop-filter: blur(8px); display: none; white-space: nowrap; }
+  #tip b { font-weight: 600; }
+  .controls { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(10px); max-width: calc(100% - 32px); flex-wrap: nowrap; white-space: nowrap; font-size: 11px; }
+  .controls button, .controls select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+  .controls select option { background: #0b0d14; }
+  .controls select.compact { font-size: 11px; padding: 3px 6px; max-width: 150px; }
+  .controls button[aria-pressed="true"] { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.25); }
+  .controls input[type=range] { width: 140px; min-width: 60px; flex: 1 1 140px; accent-color: #9fb3d9; }
+  .controls .icon { display: inline-grid; place-items: center; padding: 4px 6px; }
+  .controls .icon svg { width: 14px; height: 14px; }
+  .sep { width: 1px; height: 18px; background: var(--line); }
+  .controls.collapsed > :not(#collapse) { display: none; }
+  .controls.collapsed { padding: 4px; }
+  .help { position: absolute; top: 10px; right: 14px; display: grid; place-items: center; padding: 4px; color: var(--ink); background: none; border: 0; border-radius: 6px; cursor: pointer; opacity: 0.8; }
+  .help svg { width: 20px; height: 20px; filter: drop-shadow(0 1px 4px rgba(0,0,0,.8)); }
+  .help:hover, .help[aria-expanded="true"] { opacity: 1; background: var(--panel); }
+  .legend { position: absolute; top: 46px; right: 16px; max-height: calc(100% - 120px); overflow-y: auto; width: 260px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); display: none; }
+  .legend.open { display: block; }
+  .legend b { color: var(--ink); font-weight: 600; }
+  .legend p { margin: 0 0 6px; }
+  @media (max-width: 640px) { .controls { bottom: 10px; } .controls input[type=range] { display: none; } }
+
+  /* The page under the hero. The type follows the robertcreative.com project pages, one step smaller:
+     a mono label with a dot, a black tight headline, bold section headings, 19px body at 70%. */
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px 96px; }
+  .intro { padding: 56px 0 64px; border-bottom: 1px solid var(--line); }
+  .label { display: inline-flex; align-items: center; gap: 8px; font: 400 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .18em; color: rgba(216,222,233,.55); }
+  .label::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #3fd8e6; }
+  h1, h2 { margin: 0; text-wrap: balance; color: var(--ink); }
+  h1 { font-size: clamp(56px, 8.5vw, 104px); font-weight: 900; line-height: .9; letter-spacing: -.05em; margin-top: 24px; }
+  h2 { font-size: clamp(32px, 4vw, 44px); font-weight: 700; line-height: 1.05; letter-spacing: -.03em; margin-bottom: 24px; }
+  p { margin: 0; max-width: 64ch; font-size: 19px; font-weight: 400; line-height: 1.65; color: rgba(216,222,233,.7); }
+  .lede { margin-top: 32px; font-size: 20px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
+  .btn { font: 300 14px/1 var(--sans); padding: 13px 20px; border: 1px solid rgba(216,222,233,.2); border-radius: 0; background: transparent; color: rgba(216,222,233,.85); cursor: pointer; text-decoration: none; transition: border-color .15s, color .15s; }
+  .btn:hover { border-color: rgba(216,222,233,.45); color: var(--ink); }
+  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 500; }
+  section { padding: 72px 0; border-bottom: 1px solid var(--line); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px 48px; }
+  .grid p { font-size: 17px; }
+  .grid b, p b { color: rgba(216,222,233,.92); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  th, td { text-align: left; padding: 14px 24px 14px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: rgba(216,222,233,.7); }
+  th { font: 400 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .14em; color: rgba(216,222,233,.5); white-space: nowrap; }
+  td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; margin-top: 28px; }
+  footer { padding-top: 32px; font-size: 14px; font-weight: 300; color: var(--muted); }
+  footer svg { height: 9px; width: auto; vertical-align: 0; color: var(--ink); }
+  @media (max-width: 640px) {
+    #frame { height: 70vh; min-height: 360px; }
+    .wrap { padding: 0 20px 72px; }
+    p, .lede { font-size: 17px; }
+    .grid p { font-size: 16px; }
+    .intro { padding: 40px 0 48px; }
+    section { padding: 48px 0; }
+  }
+</style>
+</head>
+<body>
+<div id="frame">
+  <div class="hud">
+    <a class="credit" href="https://massive.com" target="_blank" rel="noopener">Data provided by <svg viewBox="0 0 680 76" fill="currentColor" aria-label="Massive" role="img"><path d="M0 0V76H28V28L50 76H78L100 28V76H128V0H86L64 48L42 0H0Z"/><path d="M164 76H132L168 0H198L234 76H202L184 28L164 76Z"/><path d="M266 28H310C319.333 28 338 35.4 338 53C338 70.6 319.333 76 310 76H238V56H310V48H266C256.667 48 238 40.6 238 23C238 5.4 256.667 0 266 0H338V20H266V28Z"/><path d="M370 28H414C423.333 28 442 35.4 442 53C442 70.6 423.333 76 414 76H342V56H414V48H370C360.667 48 342 40.6 342 23C342 5.4 360.667 0 370 0H442V20H370V28Z"/><path d="M480 0H450V76H480V0Z"/><path d="M516 0H484L520 76H550L586 0H554L536 48L516 0Z"/><path d="M590 76H680V56H620V48H680V28H620V20H680V0H590V76Z"/></svg></a>
+    <div class="day" id="day">Loading market data…</div>
+    <div class="meta" id="clock"></div>
+    <div class="hint" id="soundHint" hidden>♪ Click the city for sound</div>
+  </div>
+  <div id="tip"></div>
+
+  <div class="controls">
+    <select id="examples" class="compact" aria-label="Day"><option value="today" disabled>Today</option><optgroup label="Examples"></optgroup></select>
+    <span class="sep"></span>
+    <button id="play" aria-pressed="true">Pause</button>
+    <button id="speed" title="Replay speed">5×</button>
+    <input id="scrub" type="range" min="0" max="389" step="1" value="0" aria-label="Session minute">
+    <span class="sep"></span>
+    <select id="theme" aria-label="Theme"></select>
+    <button id="sound" class="icon" aria-pressed="true" aria-label="Mute"></button>
+    <button id="fullscreen" class="icon" aria-label="Full screen" title="Full screen (F)"></button>
+    <button id="collapse" aria-label="Hide controls" title="Hide controls (H)">▾</button>
+  </div>
+
+  <button id="key" class="help" aria-label="What am I looking at?" title="Key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
+  <div class="legend" id="legend"></div>
+</div>
+
+<main class="wrap">
+  <div class="intro">
+    <span class="label">Experiment · live market data</span>
+    <h1>Market City</h1>
+    <p class="lede">The stock market as a city you can read from across the room. Each tower is one of the 18 largest S&amp;P 500 stocks in its sector. The lights, the weather, the traffic and the music all come from live market data, refreshed every 30 seconds while the market is open.</p>
+    <div class="actions">
+      <button class="btn primary" id="fullscreen2" type="button">Open full screen</button>
+      <a class="btn" href="https://github.com/rgourley/market-city" target="_blank" rel="noopener">View on GitHub ↗</a>
+    </div>
+  </div>
+
+  <section>
+    <h2 id="how">How to read it</h2>
+    <div class="grid" id="howItems">
+      <p><b>Districts</b> are sectors. Each tower is one of the 18 largest S&amp;P 500 stocks in its GICS sector. Height follows the square root of market cap.</p>
+      <p><b>Lit windows</b> show how the stock is doing today. A dark tower is down, a fully lit one is up.</p>
+      <p><b>Edges, beacons and signs</b> take the up color or the down color. Brighter means a bigger move.</p>
+      <p><b>The tall tower</b> in the open plaza is SPY, the whole market. Its crown glows with SPY's move, and the LED bands scroll up or down with it.</p>
+      <p><b>Weather</b> follows SPY volatility over the last 20 minutes: clear, haze, rain, then lightning.</p>
+      <p><b>Sky</b> drifts from dusk at the open to night at the close. It warms when SPY is up and goes cold when SPY is down.</p>
+      <p><b>Traffic</b> follows SPY volume against its 20-day minute average.</p>
+      <p><b>Fireworks</b> launch when a stock crosses another +5%, a sector another +2.5%, or SPY another +2%. SPY's are the big ones from the tall tower.</p>
+      <p><b>Sound</b> follows the same data. Tempo is traffic, hi-hats and swing are volatility, the key is SPY direction, the bass filter opens with the size of SPY's move, and the arpeggio steps through the 11 sectors.</p>
+      <p>Hover a tower for the numbers. Drag to orbit, pinch or ⌘-scroll to zoom, and right-drag or Shift-drag to pan. In full screen any scroll zooms. WASD moves around the city like a game, Q and E turn, and Shift goes faster. Double-click resets the view.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Themes and music</h2>
+    <p>Each theme has its own look and plays its own genre. The music is made live in your browser from the same data. A song picks a bright or dark key from SPY's direction when it starts, plays its form, and hands over to a new song.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Theme</th><th>Genre</th><th>Tempo</th><th>What you hear</th></tr></thead>
+        <tbody>
+          <tr><td>Cyberpunk</td><td>Techno</td><td>124–134</td><td>Four-on-the-floor kick, off-beat open hats, chord stabs, an FM arp</td></tr>
+          <tr><td>Dusk</td><td>Deep house</td><td>118–124</td><td>Swung hats, electric piano 7th chords, a warm rolling bass</td></tr>
+          <tr><td>Synthwave</td><td>Synthwave</td><td>84–112</td><td>A 16th-note arpeggiated bass with sidechain pumping, gated snare, tom fills, a slow lead</td></tr>
+          <tr><td>Noir</td><td>Trip-hop</td><td>72–90</td><td>A laid-back broken beat, electric piano chords, vinyl crackle</td></tr>
+          <tr><td>Matrix</td><td>Industrial techno</td><td>130–145</td><td>A distorted kick and a bit-crushed arp</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Live and replay</h2>
+    <p>While the market is open, the city is live. The rest of the time it replays the most recent session. The day menu also has a few days worth watching: the April 2025 tariff crash, the rally five days later when the tariffs were paused, a quiet August day, and a day the sectors split apart. Play them at 1×, 5× or 20×, or drag the slider to any minute.</p>
+  </section>
+
+  <section>
+    <h2>How it's built</h2>
+    <p>The city is three.js with no drawn assets: every building, window and light comes from code. The music is Tone.js. The market data comes from the Massive API: minute bars for each stock, one bulk snapshot every 30 seconds while the market is open, and grouped daily bars for the previous close. A small Vercel function holds the API key and caches the day, so every viewer shares the same few calls.</p>
+  </section>
+
+  <footer>Data provided by <a href="https://massive.com" target="_blank" rel="noopener"><svg viewBox="0 0 680 76" fill="currentColor" aria-label="Massive" role="img"><path d="M0 0V76H28V28L50 76H78L100 28V76H128V0H86L64 48L42 0H0Z"/><path d="M164 76H132L168 0H198L234 76H202L184 28L164 76Z"/><path d="M266 28H310C319.333 28 338 35.4 338 53C338 70.6 319.333 76 310 76H238V56H310V48H266C256.667 48 238 40.6 238 23C238 5.4 256.667 0 266 0H338V20H266V28Z"/><path d="M370 28H414C423.333 28 442 35.4 442 53C442 70.6 423.333 76 414 76H342V56H414V48H370C360.667 48 342 40.6 342 23C342 5.4 360.667 0 370 0H442V20H370V28Z"/><path d="M480 0H450V76H480V0Z"/><path d="M516 0H484L520 76H550L586 0H554L536 48L516 0Z"/><path d="M590 76H680V56H620V48H680V28H620V20H680V0H590V76Z"/></svg></a>. Built by <a href="https://robertcreative.com">Robert Gourley</a>. For display only, not investment advice.</footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.22/Tone.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { Reflector } from "three/addons/objects/Reflector.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { createMusic } from "./music.js";
+
+// The sample days, the sectors and the market caps come from the server, which builds them from Massive.
+const examplesRes = await fetch("api/examples").catch(() => null);
+if (!examplesRes?.ok) {
+  document.getElementById("day").textContent = "Market data is unavailable right now. Try again in a minute.";
+  throw new Error(`api/examples ${examplesRes?.status ?? "network error"}`);
+}
+const data = await examplesRes.json();
+
+// ---------- Themes ----------
+// A theme sets only the look. The data mapping is the same in every theme.
+const THEMES = {
+  cyberpunk: {
+    label: "Cyberpunk",
+    up: "#00ffc6", down: "#ff2a6d", flat: "#5a4f8a",
+    tints: ["#6ff7ff", "#6ff7ff", "#ff5ad9", "#b69cff", "#e8f4ff"],
+    facade: ["#141526", "#0b0c16"], roof: "#0e0d18", pad: "#0c0a16", spire: "#120f22",
+    sky: { dusk: ["#1a0f3d", "#7a1f6e"], night: ["#04020c", "#26092f"], up: ["#2a0f5a", "#ff3d8a"], down: ["#01050a", "#0a3344"], storm: "#120a1a" },
+    hemi: ["#7a4aa8", "#05030a", 0.45], moon: ["#6ff7ff", 0.3],
+    windowGain: 0.85, edges: 1.3, signs: true, blades: true, flyers: true, searchlights: ["#6ff7ff", "#ff3dd0", "#b69cff"],
+    grid: null, sun: false, wet: 0.72, bloom: [0.8, 0.5, 0.45], rain: "#8fb8ff", drizzle: 0.12,
+    post: { ca: 0.016, scan: 0.1, grain: 0.05, vig: 0.55 }, cars: ["#bff8ff", "#ff2a6d"],
+    cam: { r: 72, h: 17, look: 19 },
+    logo: { blades: false, colors: ["#ff3dd0", "#6ff7ff"], tube: true, gain: 1.7, holo: ["#6ff7ff", "#ff3dd0"] },
+  },
+  dusk: {
+    label: "Dusk",
+    up: "#3ddc84", down: "#ff4d4d", flat: "#8892a6",
+    tints: ["#ffd59a", "#ffd59a", "#ffe9c8", "#ffe9c8", "#bcd8ff"],
+    facade: ["#2b3242", "#121722"], roof: "#151a24", pad: "#0c1018", spire: "#3a4256",
+    sky: { dusk: ["#1b2350", "#7a5a86"], night: ["#060914", "#1c2238"], up: ["#1a1c48", "#e07a6a"], down: ["#070a12", "#2a3a4c"], storm: "#1a1d24" },
+    hemi: ["#5a6a9a", "#0a0c12", 0.55], moon: ["#9fb3ff", 0.5],
+    windowGain: 1.15, edges: 0, signs: false, blades: false, flyers: false, searchlights: null,
+    grid: null, sun: false, wet: 0.93, bloom: [0.55, 0.4, 0.55], rain: "#9fb0cc", drizzle: 0,
+    post: { ca: 0, scan: 0, grain: 0.02, vig: 0.3 }, cars: ["#fff4dc", "#ff3030"],
+    cam: { r: 62, h: 26, look: 10 },
+    logo: { blades: true, colors: ["#fff1d6", "#fff1d6"], glow: "#ffcf8a", gain: 1.2, holo: null },
+  },
+  synthwave: {
+    label: "Synthwave",
+    up: "#2de2e6", down: "#ff3864", flat: "#8a6fb0",
+    tints: ["#ff9ae0", "#ffb86b", "#ffd0f0", "#2de2e6"],
+    facade: ["#1d1033", "#120a22"], roof: "#140a26", pad: "#12082a", spire: "#1d1033",
+    sky: { dusk: ["#2b0b4f", "#ff6a3d"], night: ["#0d0221", "#7a1f6a"], up: ["#3b0d6b", "#ffb347"], down: ["#090218", "#3a1050"], storm: "#1a0d26" },
+    hemi: ["#ff6ad5", "#0d0221", 0.6], moon: ["#ff9a3d", 0.4],
+    windowGain: 1.0, edges: 1.1, signs: true, blades: false, flyers: false, searchlights: null,
+    grid: "#ff2fd0", sun: true, wet: 0.85, bloom: [0.75, 0.5, 0.45], rain: "#ff9ae0", drizzle: 0,
+    post: { ca: 0.02, scan: 0.18, grain: 0.03, vig: 0.45 }, cars: ["#ffe0a0", "#ff2975"],
+    cam: { r: 78, h: 24, look: 18 },
+    logo: { blades: false, colors: ["#ff2975", "#ff2975"], gain: 1.4, holo: ["#ffd319", "#ff2975"] },
+  },
+  noir: {
+    label: "Noir",
+    up: "#f2f2f2", down: "#ff2a2a", flat: "#5a5a5a",
+    tints: ["#f4f1e8", "#f4f1e8", "#d8d4c8"],
+    facade: ["#262626", "#111111"], roof: "#161616", pad: "#0e0e0e", spire: "#262626",
+    sky: { dusk: ["#1c1c1f", "#56565c"], night: ["#060607", "#222226"], up: ["#2a2a30", "#9a9aa2"], down: ["#040404", "#3a1214"], storm: "#101012" },
+    hemi: ["#9a9aa0", "#050505", 0.5], moon: ["#ffffff", 0.4],
+    windowGain: 1.0, edges: 0.6, signs: false, blades: true, flyers: false, searchlights: ["#ffffff", "#ffffff"],
+    grid: null, sun: false, wet: 0.7, bloom: [0.5, 0.4, 0.5], rain: "#c8c8c8", drizzle: 0.08,
+    post: { ca: 0, scan: 0.04, grain: 0.1, vig: 0.75 }, cars: ["#ffffff", "#ff2020"],
+    cam: { r: 72, h: 24, look: 12 },
+    logo: { blades: true, colors: ["#ff3b3b", "#ff3b3b"], tube: true, gain: 1.8, holo: null },
+  },
+  matrix: {
+    label: "Matrix",
+    up: "#5dff7a", down: "#0f3a1a", flat: "#1f6b35",
+    tints: ["#5dff7a", "#2fd14f", "#a8ffb8"],
+    facade: ["#0b170e", "#050c07"], roof: "#08120a", pad: "#06120a", spire: "#0b170e",
+    sky: { dusk: ["#02140a", "#0f3a1c"], night: ["#010603", "#06200f"], up: ["#03200f", "#1f6b35"], down: ["#000000", "#03100a"], storm: "#030805" },
+    hemi: ["#3aff6a", "#000000", 0.35], moon: ["#5dff7a", 0.3],
+    windowGain: 1.0, edges: 1.2, signs: true, blades: true, flyers: false, searchlights: null,
+    grid: "#1f8a3a", sun: false, wet: 0.8, bloom: [0.7, 0.5, 0.4], rain: "#5dff7a", drizzle: 0,
+    post: { ca: 0.015, scan: 0.2, grain: 0.05, vig: 0.6 }, cars: ["#a8ffb8", "#2fd14f"],
+    cam: { r: 74, h: 32, look: 8 },
+    logo: { blades: false, colors: ["#5dff7a", "#5dff7a"], gain: 1.3, holo: ["#a8ffb8", "#2fd14f"] },
+  },
+};
+
+// ---------- Constants ----------
+const SLOTS = 390;
+const STREET = 4.6;        // Width of a street between districts.
+const LOT = 3.4;           // Distance between tower centers inside a district.
+const UP = new THREE.Color(), DOWN = new THREE.Color(), FLAT = new THREE.Color();
+let theme = null;
+
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const col = (hex) => new THREE.Color(hex);
+
+// ---------- Renderer ----------
+const frame = document.getElementById("frame");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+frame.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2("#2a1238", 0.006);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 900);
+
+// Drag orbits, scroll zooms, right-drag pans. The slow auto-orbit pauses during use and resumes after 8 seconds.
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 12;
+controls.maxDistance = 220;
+controls.maxPolarAngle = Math.PI / 2 - 0.04;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.3;
+// In the page, a plain mouse wheel scrolls the page. A trackpad pinch or a Cmd/Ctrl wheel zooms the city.
+// Full screen zooms with any wheel. The capture listener runs before OrbitControls reads enableZoom.
+controls.enableZoom = false;
+renderer.domElement.addEventListener("wheel", (e) => { controls.enableZoom = isFullscreen() || e.ctrlKey || e.metaKey; }, { capture: true, passive: true });
+let idleTimer = 0;
+controls.addEventListener("start", () => { controls.autoRotate = false; clearTimeout(idleTimer); });
+controls.addEventListener("end", () => { idleTimer = setTimeout(() => (controls.autoRotate = true), 8000); });
+
+// The post pass adds chromatic aberration, scanlines, grain and a vignette.
+const PostShader = {
+  uniforms: { tDiffuse: { value: null }, ca: { value: 0 }, scan: { value: 0 }, grain: { value: 0 }, vig: { value: 0 }, time: { value: 0 }, res: { value: new THREE.Vector2(1, 1) } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float ca, scan, grain, vig, time; uniform vec2 res; varying vec2 vUv;
+    float rand(vec2 c){ return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main(){
+      vec2 d = vUv - 0.5; float r2 = dot(d, d);
+      vec2 off = d * ca * r2 * 2.0;
+      vec3 c = vec3(texture2D(tDiffuse, vUv + off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - off).b);
+      c *= 1.0 - scan * (0.5 + 0.5 * sin(vUv.y * res.y * 1.5708));
+      c += (rand(vUv * res + time) - 0.5) * grain;
+      c *= 1.0 - vig * r2 * 1.6;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+};
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.4, 0.55);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const post = new ShaderPass(PostShader);
+composer.addPass(post);
+
+// ---------- Sky ----------
+const skyUniforms = { top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, flash: { value: 0 } };
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(500, 32, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyUniforms,
+    vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform float flash; varying vec3 vP;
+      void main(){ float h = clamp(normalize(vP).y * 2.2, 0.0, 1.0);
+        vec3 c = mix(horizon, top, pow(h, 0.7)); c += vec3(0.75,0.8,1.0) * flash;
+        gl_FragColor = vec4(c, 1.0); }`,
+  }),
+);
+scene.add(sky);
+
+// The synthwave sun is a striped disc on the horizon behind the city.
+const sun = new THREE.Mesh(
+  new THREE.PlaneGeometry(130, 130),
+  new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, fog: false,
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `varying vec2 vUv;
+      void main(){
+        if (length(vUv - 0.5) > 0.5) discard;
+        float y = vUv.y;
+        if (y < 0.5) { float band = fract(y * 14.0); if (band < (0.5 - y) * 1.4) discard; }
+        vec3 c = mix(vec3(1.0, 0.16, 0.46), vec3(1.0, 0.83, 0.1), y);
+        gl_FragColor = vec4(c * 1.4, 1.0);
+      }`,
+  }),
+);
+sun.renderOrder = -1;
+scene.add(sun);
+
+const hemi = new THREE.HemisphereLight("#7a4aa8", "#05030a", 0.55);
+scene.add(hemi);
+const moon = new THREE.DirectionalLight("#6ff7ff", 0.35);
+moon.position.set(-60, 120, 40);
+scene.add(moon);
+
+// ---------- Ground ----------
+// The ground is a mirror under a dark, partly clear layer. This gives a wet street look.
+const mirror = new Reflector(new THREE.PlaneGeometry(400, 400), {
+  textureWidth: Math.floor(innerWidth * 0.4), textureHeight: Math.floor(innerHeight * 0.4), color: "#8a8a8a",
+});
+mirror.rotation.x = -Math.PI / 2; mirror.position.y = -0.02;
+scene.add(mirror);
+const wet = new THREE.Mesh(
+  new THREE.PlaneGeometry(1200, 1200),
+  new THREE.MeshStandardMaterial({ color: "#07050d", roughness: 0.4, metalness: 0.2, transparent: true, opacity: 0.8 }),
+);
+wet.rotation.x = -Math.PI / 2;
+scene.add(wet);
+const grid = new THREE.GridHelper(320, 96, 0xffffff, 0xffffff);
+grid.material.transparent = true; grid.material.opacity = 0.35; grid.position.y = 0.03;
+scene.add(grid);
+
+// ---------- Textures ----------
+const canvas = (w, h) => Object.assign(document.createElement("canvas"), { width: w, height: h });
+function repeatTexture(c) {
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// All towers share one instanced mesh and this shader. The shader draws the windows, so towers need no textures.
+// Each tower passes its lit fraction (aLit) and a seed (aSeed). A window is lit when its hash is below the lit fraction,
+// so the windows that are lit at a low fraction stay lit at a high fraction.
+const towerUniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
+  facade: { value: new THREE.Color() }, facadeWin: { value: new THREE.Color() }, roof: { value: new THREE.Color() },
+  tints: { value: [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()] }, gain: { value: 1 },
+}]);
+const towerMaterial = new THREE.ShaderMaterial({
+  uniforms: towerUniforms, fog: true,
+  vertexShader: `
+    attribute float aLit; attribute float aSeed;
+    varying vec3 vLocal; varying vec3 vNormal; varying float vLit; varying float vSeed;
+    #include <fog_pars_vertex>
+    void main(){
+      vec3 sc = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
+      vLocal = (position + 0.5) * sc;
+      vNormal = normal; vLit = aLit; vSeed = aSeed;
+      vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+      #include <fog_vertex>
+    }`,
+  fragmentShader: `
+    uniform vec3 facade, facadeWin, roof, tints[4]; uniform float gain;
+    varying vec3 vLocal; varying vec3 vNormal; varying float vLit; varying float vSeed;
+    #include <fog_pars_fragment>
+    float hash(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+    void main(){
+      vec3 col;
+      if (abs(vNormal.y) > 0.5) {
+        col = roof;
+      } else {
+        vec2 coord = abs(vNormal.x) > 0.5 ? vLocal.zy : vLocal.xy;
+        vec2 cell = coord / 0.7;
+        vec2 id = floor(cell); vec2 f = fract(cell);
+        float inWin = step(0.2, f.x) * step(f.x, 0.8) * step(0.22, f.y) * step(f.y, 0.78);
+        float face = vNormal.x + vNormal.z * 2.0;
+        float lit = step(hash(vec3(id, vSeed + face)), vLit) * inWin;
+        vec3 tint = tints[int(floor(hash(vec3(id, vSeed + 7.0)) * 3.999))];
+        float shade = 0.6 + 0.4 * abs(vNormal.z);
+        col = mix(facade, facadeWin, inWin) * shade + tint * lit * gain;
+      }
+      gl_FragColor = vec4(col, 1.0);
+      #include <fog_fragment>
+    }`,
+});
+
+// A blade sign is a vertical strip that sticks out from a tower corner. It spells the ticker from top to bottom.
+function bladeTexture(ticker) {
+  const c = canvas(64, 64 * ticker.length + 24);
+  const g = c.getContext("2d");
+  g.strokeStyle = "#fff"; g.lineWidth = 4; g.strokeRect(4, 4, 56, c.height - 8);
+  g.fillStyle = "#fff"; g.font = "800 46px 'JetBrains Mono', monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+  [...ticker].forEach((ch, i) => g.fillText(ch, 32, 12 + 64 * i + 34));
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// ---------- City layout ----------
+// Each district is a square block of lots. The side of the block is the square root of the stock count, rounded up.
+// The districts sit in 3 rows. The SPY plaza is in the middle of the middle row.
+const towers = [];
+const districts = [];
+const pickables = [];
+
+// The function returns a small seeded random generator, so the layout is the same on every load.
+function seededRandom(seed) { let a = seed >>> 0; return () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; }
+const capLog = (t) => { const cap = data.caps[t]; return cap ? Math.log10(cap) : 10.8; };
+// Tower height follows the square root of market cap. The largest stock is 26 units tall.
+const MAX_CAP = Math.max(...Object.values(data.caps).filter(Boolean));
+const towerHeight = (t) => 2 + 24 * Math.sqrt((data.caps[t] ?? 6e10) / MAX_CAP);
+
+// The city is a 4 x 3 grid of equal cells. Cell 5 is the SPY plaza. The 11 sectors fill the other cells in order.
+// Each district is a 5 x 5 block of lots that holds the sector's 18 largest stocks, so the corners stay open.
+const GRID_COLS = 4, GRID_ROWS = 3, PLAZA_CELL = 5, BLOCK_LOTS = 5;
+const PITCH = BLOCK_LOTS * LOT + STREET;
+const sideLots = () => BLOCK_LOTS;
+
+// The function returns the center and size of every block, and the street lanes between the cells.
+function layoutCity() {
+  const etfs = data.sectors.map((sec) => sec.etf);
+  etfs.splice(PLAZA_CELL, 0, "SPY");
+  const blocks = {};
+  etfs.forEach((etf, cell) => {
+    const cx = (cell % GRID_COLS) - (GRID_COLS - 1) / 2, cz = Math.floor(cell / GRID_COLS) - (GRID_ROWS - 1) / 2;
+    blocks[etf] = { x: cx * PITCH, z: cz * PITCH, side: BLOCK_LOTS * LOT };
+  });
+  const halfWidth = (GRID_COLS / 2) * PITCH, halfDepth = (GRID_ROWS / 2) * PITCH;
+  const lanes = [];
+  for (let i = 0; i <= GRID_COLS; i++) lanes.push({ vertical: true, line: (i - GRID_COLS / 2) * PITCH, min: -halfDepth - 6, max: halfDepth + 6 });
+  for (let i = 0; i <= GRID_ROWS; i++) lanes.push({ vertical: false, line: (i - GRID_ROWS / 2) * PITCH, min: -halfWidth - 6, max: halfWidth + 6 });
+  return { blocks, lanes, halfWidth, halfDepth };
+}
+const city = layoutCity();
+
+// All tower edges go into one line mesh, and all beacons and tower bodies into instanced meshes. Each tower keeps its slot.
+const edgeParts = [];
+const towerSpecs = [];
+
+for (const sector of data.sectors) {
+  const block = city.blocks[sector.etf];
+  const center = new THREE.Vector3(block.x, 0, block.z);
+  const n = BLOCK_LOTS;
+  // The lots nearest the block center come first. A little noise in the sort key softens the outline.
+  const rand = seededRandom(sector.etf.charCodeAt(1) * 131 + sector.etf.length);
+  const lots = Array.from({ length: n * n }, (_, i) => [(i % n) - (n - 1) / 2, Math.floor(i / n) - (n - 1) / 2])
+    .map((l) => ({ l, key: Math.hypot(...l) + rand() * 0.6 }))
+    .sort((a, b) => a.key - b.key)
+    .map((x) => x.l);
+
+  const pad = new THREE.Mesh(
+    new THREE.PlaneGeometry(block.side + 1, block.side + 1),
+    new THREE.MeshStandardMaterial({ color: "#0c0a16", emissive: new THREE.Color(0), roughness: 0.6, transparent: true, opacity: 0.6 }),
+  );
+  pad.rotation.x = -Math.PI / 2; pad.position.copy(center).setY(0.02);
+  scene.add(pad);
+
+  // A floating holographic sign names the sector.
+  const signCanvas = canvas(512, 96);
+  const sg = signCanvas.getContext("2d");
+  sg.font = "600 52px 'JetBrains Mono', monospace"; sg.textAlign = "center"; sg.textBaseline = "middle";
+  sg.fillStyle = "#fff"; sg.fillText(sector.name.toUpperCase(), 256, 50);
+  const signTex = new THREE.CanvasTexture(signCanvas); signTex.colorSpace = THREE.SRGBColorSpace;
+  const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: signTex, color: FLAT.clone(), transparent: true, depthWrite: false }));
+  sign.scale.set(12, 2.25, 1);
+  sign.position.copy(center).setY(31);
+  scene.add(sign);
+  districts.push({ sector, pad, sign });
+
+  // The largest stocks take the center lots, so each district rises to a peak.
+  const sorted = [...sector.tickers].sort((a, b) => capLog(b) - capLog(a));
+  sorted.forEach((ticker, k) => {
+    const [lx, lz] = lots[k];
+    const h = towerHeight(ticker);
+    // The footprint grows with market cap. The tower moves a little inside its lot, so the rows do not line up.
+    const w = 1.6 + 1.3 * Math.sqrt((data.caps[ticker] ?? 6e10) / MAX_CAP);
+    const slack = (LOT - w) * 0.25;
+    const pos = new THREE.Vector3(center.x + lx * LOT + (rand() * 2 - 1) * slack, h / 2, center.z + lz * LOT + (rand() * 2 - 1) * slack);
+    const slot = towers.length;
+    towerSpecs.push({ pos, w, h });
+    // Neon edges outline each tower. The color follows the stock move.
+    edgeParts.push(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, w)).translate(pos.x, pos.y, pos.z));
+
+    // The 3 largest stocks in each district carry a blade sign.
+    let blade = null;
+    if (k < 3) {
+      const len = Math.min(h * 0.45, 1.05 * ticker.length + 0.4);
+      blade = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.95, len),
+        new THREE.MeshBasicMaterial({ map: bladeTexture(ticker), color: FLAT.clone(), transparent: true, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      const side = k % 2 === 0 ? 1 : -1;
+      blade.position.set(pos.x + side * (w / 2 + 0.5), h * 0.62, pos.z + side * (w / 2 - 0.2));
+      scene.add(blade);
+    }
+
+    towers.push({ ticker, sector, pos, h, slot, blade, shown: 0 });
+  });
+}
+
+// The batched edge mesh and beacon mesh are built after every tower has a slot.
+const edgeStarts = [];
+const edgePositions = new Float32Array(edgeParts.reduce((n, g) => n + g.attributes.position.count * 3, 0));
+{
+  let o = 0;
+  for (const g of edgeParts) { edgeStarts.push(o / 3); edgePositions.set(g.attributes.position.array, o); o += g.attributes.position.count * 3; }
+}
+edgeStarts.push(edgePositions.length / 3);
+const edgeColors = new Float32Array(edgePositions.length);
+const edgeGeoAll = new THREE.BufferGeometry();
+edgeGeoAll.setAttribute("position", new THREE.BufferAttribute(edgePositions, 3));
+edgeGeoAll.setAttribute("color", new THREE.BufferAttribute(edgeColors, 3));
+const edgeLines = new THREE.LineSegments(edgeGeoAll, new THREE.LineBasicMaterial({ vertexColors: true }));
+scene.add(edgeLines);
+function setEdgeColor(slot, c) {
+  for (let v = edgeStarts[slot]; v < edgeStarts[slot + 1]; v++) { edgeColors[v * 3] = c.r; edgeColors[v * 3 + 1] = c.g; edgeColors[v * 3 + 2] = c.b; }
+}
+
+const towerMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), towerMaterial, towerSpecs.length);
+const towerLit = new THREE.InstancedBufferAttribute(new Float32Array(towerSpecs.length).fill(0.5), 1);
+towerMesh.geometry.setAttribute("aLit", towerLit);
+towerMesh.geometry.setAttribute("aSeed", new THREE.InstancedBufferAttribute(Float32Array.from(towerSpecs, (_, i) => (i * 37.13) % 97), 1));
+const beaconMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.18, 1), new THREE.MeshBasicMaterial(), towerSpecs.length);
+towerSpecs.forEach((b, i) => {
+  towerMesh.setMatrixAt(i, new THREE.Matrix4().compose(b.pos, new THREE.Quaternion(), new THREE.Vector3(b.w, b.h, b.w)));
+  beaconMesh.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(b.pos.x, b.h + 0.1, b.pos.z), new THREE.Quaternion(), new THREE.Vector3(b.w * 0.55, 1, b.w * 0.55)));
+  beaconMesh.setColorAt(i, FLAT);
+});
+towerMesh.computeBoundingSphere();
+scene.add(towerMesh, beaconMesh);
+pickables.push(towerMesh);
+const tmpColor = new THREE.Color();
+
+// The SPY tower stands in the plaza cell. It is a tapered shaft with an LED crown, like the Salesforce Tower.
+const plaza = new THREE.Vector3(city.blocks.SPY.x, 0, city.blocks.SPY.z);
+const SPIRE_H = 30, CROWN_FROM = 23;
+const radiusAt = (y) => 3.1 - 1.5 * Math.pow(y / SPIRE_H, 1.7);
+const profile = (from, to, pad) => Array.from({ length: 24 }, (_, i) => {
+  const y = from + ((to - from) * i) / 23;
+  return new THREE.Vector2(radiusAt(y) + pad, y);
+});
+// Vertical mullions run up the shaft. The crown has horizontal LED bands.
+function stripeTexture(vertical) {
+  const c = canvas(64, 64);
+  const g = c.getContext("2d");
+  g.fillStyle = "#000"; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = "#fff";
+  if (vertical) g.fillRect(30, 0, 3, 64); else for (let y = 4; y < 64; y += 10) g.fillRect(0, y, 64, 4);
+  return repeatTexture(c);
+}
+const shaftStripes = stripeTexture(true); shaftStripes.repeat.set(28, 1);
+const spire = new THREE.Mesh(
+  new THREE.LatheGeometry([...profile(0, SPIRE_H, 0), new THREE.Vector2(0.9, SPIRE_H + 0.8), new THREE.Vector2(0, SPIRE_H + 1.1)], 48),
+  new THREE.MeshStandardMaterial({ color: "#151226", roughness: 0.25, metalness: 0.85, emissive: "#ffffff", emissiveMap: shaftStripes, emissiveIntensity: 0.25 }),
+);
+spire.position.copy(plaza);
+scene.add(spire);
+const crownBands = stripeTexture(false); crownBands.repeat.set(1, 6);
+const crown = new THREE.Mesh(
+  new THREE.LatheGeometry(profile(CROWN_FROM, SPIRE_H, 0.05), 48),
+  new THREE.MeshBasicMaterial({ map: crownBands, color: FLAT.clone(), transparent: true, side: THREE.DoubleSide, depthWrite: false }),
+);
+crown.position.copy(plaza);
+scene.add(crown);
+// A red aircraft light blinks on the mast.
+const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.12, 4, 6), new THREE.MeshStandardMaterial({ color: "#222" }));
+mast.position.copy(plaza).setY(SPIRE_H + 3);
+scene.add(mast);
+const blinker = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshBasicMaterial({ color: "#ff2020" }));
+blinker.position.copy(plaza).setY(SPIRE_H + 5.1);
+scene.add(blinker);
+const plazaRing = new THREE.Mesh(new THREE.RingGeometry(4.5, 5.2, 48), new THREE.MeshBasicMaterial({ color: FLAT.clone(), transparent: true, opacity: 0.6 }));
+plazaRing.rotation.x = -Math.PI / 2; plazaRing.position.copy(plaza).setY(0.05);
+scene.add(plazaRing);
+
+// ---------- Massive sign ----------
+// The wordmark paths come from ui-docs-v2/public/brands/logo_massive_dark.svg (680 x 76).
+const WORDMARK = [
+  "M0 0V76H28V28L50 76H78L100 28V76H128V0H86L64 48L42 0H0Z",
+  "M164 76H132L168 0H198L234 76H202L184 28L164 76Z",
+  "M266 28H310C319.333 28 338 35.4 338 53C338 70.6 319.333 76 310 76H238V56H310V48H266C256.667 48 238 40.6 238 23C238 5.4 256.667 0 266 0H338V20H266V28Z",
+  "M370 28H414C423.333 28 442 35.4 442 53C442 70.6 423.333 76 414 76H342V56H414V48H370C360.667 48 342 40.6 342 23C342 5.4 360.667 0 370 0H442V20H370V28Z",
+  "M480 0H450V76H480V0Z",
+  "M516 0H484L520 76H550L586 0H554L536 48L516 0Z",
+  "M590 76H680V56H620V48H680V28H620V20H680V0H590V76Z",
+].map((d) => new Path2D(d));
+// Each letter is one path. The x range of each letter lets the blade sign stack the letters.
+const LETTER_X = [[0, 128], [132, 234], [238, 338], [342, 442], [450, 480], [484, 586], [590, 680]];
+
+// The function paints the wordmark paths. A tube sign strokes the outline. Other signs fill it.
+function paintMark(g, style, color) {
+  g.shadowColor = style.glow ?? color; g.shadowBlur = 18;
+  if (style.tube) {
+    g.lineJoin = "round"; g.strokeStyle = color; g.lineWidth = 5;
+    for (const path of WORDMARK) g.stroke(path);
+    g.shadowBlur = 0; g.lineWidth = 2; g.strokeStyle = "#ffffff";
+    for (const path of WORDMARK) g.stroke(path);
+  } else {
+    for (const path of WORDMARK) g.fill(path);
+  }
+}
+
+function paintFill(g, style, color, h) {
+  if (style.gradient) {
+    const grad = g.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, style.gradient[0]); grad.addColorStop(1, style.gradient[1]);
+    g.fillStyle = grad;
+  } else g.fillStyle = color;
+}
+
+// The blade sign stacks M-A-S-S-I-V-E from top to bottom.
+const BLADE_CELL = 150, BLADE_SCALE = 1.6;
+function drawBlade(c, style, color) {
+  const g = c.getContext("2d");
+  g.clearRect(0, 0, c.width, c.height);
+  g.strokeStyle = color; g.lineWidth = 6; g.shadowColor = color; g.shadowBlur = 14;
+  g.strokeRect(10, 10, c.width - 20, c.height - 20);
+  LETTER_X.forEach(([x0, x1], i) => {
+    g.save();
+    const cx = (x0 + x1) / 2;
+    g.translate(c.width / 2 - cx * BLADE_SCALE, 30 + i * BLADE_CELL + (BLADE_CELL - 76 * BLADE_SCALE) / 2);
+    g.scale(BLADE_SCALE, BLADE_SCALE);
+    g.beginPath(); g.rect(x0 - 2, -10, x1 - x0 + 4, 96); g.clip();
+    paintFill(g, style, color, 76);
+    paintMark(g, style, color);
+    g.restore();
+  });
+}
+
+// The wall sign sits flush on the tower face. It is a slice of a lathe that follows the taper of the shaft.
+const SIGN_BOTTOM = 6, SIGN_TOP = 21;
+const blades = [0, Math.PI].map((center) => {
+  const c = canvas(256, 30 + 7 * BLADE_CELL + 30);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  // The arc width keeps the canvas aspect ratio at the middle height of the sign.
+  const width = ((SIGN_TOP - SIGN_BOTTOM) * c.width) / c.height;
+  const arc = width / radiusAt((SIGN_BOTTOM + SIGN_TOP) / 2);
+  const m = new THREE.Mesh(
+    new THREE.LatheGeometry(profile(SIGN_BOTTOM, SIGN_TOP, 0.06), 24, center - arc / 2, arc),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }),
+  );
+  m.position.copy(plaza);
+  scene.add(m);
+  return { m, c, tex };
+});
+
+// The hologram floats above the mast. Laser beams fan up to it from an emitter on the mast.
+// The shader adds moving scanlines, flicker and a small glitch. The back face flips the texture, so the word reads from both sides.
+const holoCanvas = canvas(2048, 256);
+{
+  const g = holoCanvas.getContext("2d");
+  const scale = 2.8;
+  g.translate((2048 - 680 * scale) / 2, (256 - 76 * scale) / 2);
+  g.scale(scale, scale);
+  g.fillStyle = "#fff";
+  for (const path of WORDMARK) g.fill(path);
+}
+const holoTex = new THREE.CanvasTexture(holoCanvas);
+const holoUniforms = { map: { value: holoTex }, c1: { value: new THREE.Color() }, c2: { value: new THREE.Color() }, time: { value: 0 } };
+const HOLO_W = 15, HOLO_H = HOLO_W * 256 / 2048, HOLO_Y = SPIRE_H + 9, EMIT_Y = SPIRE_H + 4.4;
+const holo = new THREE.Group();
+holo.position.copy(plaza);
+const holoPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(HOLO_W, HOLO_H),
+  new THREE.ShaderMaterial({
+    uniforms: holoUniforms, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `uniform sampler2D map; uniform vec3 c1, c2; uniform float time; varying vec2 vUv;
+      float rand(float x){ return fract(sin(x * 91.7) * 43758.5453); }
+      void main(){
+        vec2 uv = vUv;
+        if (!gl_FrontFacing) uv.x = 1.0 - uv.x;
+        float glitch = step(0.93, rand(floor(time * 12.0))) * 0.03 * sin(uv.y * 40.0 + time * 50.0);
+        uv.x += glitch;
+        float a = texture2D(map, uv).a;
+        float scan = 0.55 + 0.45 * sin(uv.y * 90.0 - time * 9.0);
+        float flick = 0.82 + 0.18 * sin(time * 31.0) * sin(time * 7.3);
+        vec3 col = mix(c2, c1, uv.y);
+        float alpha = a * scan * flick;
+        gl_FragColor = vec4(col * alpha * 2.2, alpha);
+      }`,
+  }),
+);
+holoPlane.position.y = HOLO_Y;
+holo.add(holoPlane);
+// The beams run from the emitter to the 4 corners of the hologram.
+const beamPos = [];
+for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) beamPos.push(0, EMIT_Y, 0, (x * HOLO_W) / 2, HOLO_Y + (y * HOLO_H) / 2, 0);
+const beamGeo = new THREE.BufferGeometry();
+beamGeo.setAttribute("position", new THREE.Float32BufferAttribute(beamPos, 3));
+const beams = new THREE.LineSegments(beamGeo, new THREE.LineBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+holo.add(beams);
+// A thin fan of light fills the space between the beams.
+const fanGeo = new THREE.BufferGeometry();
+fanGeo.setAttribute("position", new THREE.Float32BufferAttribute([
+  0, EMIT_Y, 0, -HOLO_W / 2, HOLO_Y - HOLO_H / 2, 0, HOLO_W / 2, HOLO_Y - HOLO_H / 2, 0,
+], 3));
+const fan = new THREE.Mesh(fanGeo, new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+holo.add(fan);
+scene.add(holo);
+
+function drawLogo() {
+  const style = theme.logo;
+  blades.forEach((b, i) => {
+    b.m.visible = style.blades;
+    if (!style.blades) return;
+    drawBlade(b.c, style, style.colors[i]);
+    b.tex.needsUpdate = true;
+    b.m.material.color.setScalar(style.gain);
+  });
+  holo.visible = Boolean(style.holo);
+  if (style.holo) {
+    holoUniforms.c1.value.set(style.holo[0]);
+    holoUniforms.c2.value.set(style.holo[1]);
+    beams.material.color.set(style.holo[0]).multiplyScalar(1.5);
+    fan.material.color.set(style.holo[1]);
+  }
+}
+
+spire.userData.tower = { ticker: "SPY", sector: { name: "S&P 500" } };
+pickables.push(spire);
+
+// ---------- Traffic ----------
+// Cars drive on the street lines between districts. Each car has one lane and one direction.
+const MAX_CARS = 900;
+
+// Each mover drives one lane in one direction and wraps at the lane ends.
+function makeMovers(count, extra) {
+  return Array.from({ length: count }, () => {
+    const lane = city.lanes[Math.floor(Math.random() * city.lanes.length)];
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    return { ...lane, dir, s: lane.min + Math.random() * (lane.max - lane.min), ...extra(lane, dir) };
+  });
+}
+const carMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.35, 0.18, 0.7), new THREE.MeshBasicMaterial(), MAX_CARS);
+const cars = makeMovers(MAX_CARS, (lane, dir) => ({ line: lane.line + dir * 0.9, y: 0.15, speed: 6 + Math.random() * 5 }));
+scene.add(carMesh);
+
+// Flying cars use skyways above the streets. They are long thin boxes, so they read as light streaks.
+const MAX_FLYERS = 160;
+const flyerMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.1, 0.06, 1.5), new THREE.MeshBasicMaterial(), MAX_FLYERS);
+const flyers = makeMovers(MAX_FLYERS, (lane) => ({ line: lane.line + (Math.random() - 0.5) * 3, y: 22 + Math.floor(Math.random() * 4) * 4.5, speed: 16 + Math.random() * 14 }));
+scene.add(flyerMesh);
+const dummy = new THREE.Object3D();
+
+function moveFleet(mesh, list, n, dt) {
+  mesh.count = n;
+  for (let i = 0; i < n; i++) {
+    const c = list[i];
+    c.s += c.dir * c.speed * dt;
+    if (c.s > c.max) c.s = c.min; else if (c.s < c.min) c.s = c.max;
+    if (c.vertical) { dummy.position.set(c.line, c.y, c.s); dummy.rotation.y = 0; }
+    else { dummy.position.set(c.s, c.y, c.line); dummy.rotation.y = Math.PI / 2; }
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+}
+
+// ---------- Searchlights ----------
+// Each searchlight is an open cone with its tip on the ground. It sweeps slowly.
+const lightGeo = new THREE.ConeGeometry(5, 90, 24, 1, true);
+lightGeo.rotateX(Math.PI); lightGeo.translate(0, 45, 0);
+const searchlights = [[-48, -36], [50, 32], [-36, 42]].map(([x, z], i) => {
+  const m = new THREE.Mesh(lightGeo, new THREE.MeshBasicMaterial({
+    color: "#ffffff", transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
+  }));
+  m.position.set(x, 0, z);
+  m.userData.phase = i * 2.1;
+  scene.add(m);
+  return m;
+});
+
+// ---------- Rain ----------
+const MAX_DROPS = 12000;
+const rainPos = new Float32Array(MAX_DROPS * 6);
+const drops = Array.from({ length: MAX_DROPS }, () => ({ x: (Math.random() - 0.5) * 240, y: Math.random() * 80, z: (Math.random() - 0.5) * 190, v: 40 + Math.random() * 25 }));
+const rainGeo = new THREE.BufferGeometry();
+rainGeo.setAttribute("position", new THREE.BufferAttribute(rainPos, 3));
+const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: "#9fb0cc", transparent: true, opacity: 0.35 }));
+scene.add(rain);
+
+
+// ---------- Fireworks ----------
+// A rocket climbs from a rooftop and bursts into sparks. Sparks fall with gravity and fade out.
+// The page launches fireworks when a stock, a sector or SPY crosses another gain step.
+const MAX_SPARKS = 9000;
+const sparkPos = new Float32Array(MAX_SPARKS * 3), sparkCol = new Float32Array(MAX_SPARKS * 3);
+const sparkGeo = new THREE.BufferGeometry();
+sparkGeo.setAttribute("position", new THREE.BufferAttribute(sparkPos, 3));
+sparkGeo.setAttribute("color", new THREE.BufferAttribute(sparkCol, 3));
+const dotCanvas = canvas(64, 64);
+{
+  const g = dotCanvas.getContext("2d");
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, "rgba(255,255,255,1)"); grad.addColorStop(0.3, "rgba(255,255,255,0.6)"); grad.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+}
+const sparkPoints = new THREE.Points(sparkGeo, new THREE.PointsMaterial({
+  size: 0.55, map: new THREE.CanvasTexture(dotCanvas), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+sparkPoints.frustumCulled = false;
+scene.add(sparkPoints);
+const sparks = [];
+const launchQueue = [];
+const WHITE = new THREE.Color("#ffffff");
+
+// The function queues a rocket. A short random delay spreads out launches that start in the same minute.
+function queueFirework(x, y, z, big) {
+  if (launchQueue.length > 40) return;
+  launchQueue.push({ at: performance.now() / 1000 + Math.random() * 1.5, x, y, z, big });
+}
+
+function burst(r) {
+  const n = r.big ? 260 : 120;
+  if (sparks.length + n > MAX_SPARKS) return;
+  const base = UP.clone().lerp(WHITE, 0.15);
+  const second = col(theme.tints[Math.floor(Math.random() * theme.tints.length)]);
+  const speed = r.big ? 13 : 8;
+  for (let i = 0; i < n; i++) {
+    const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, k = Math.sqrt(1 - u * u);
+    const v = speed * (0.75 + Math.random() * 0.35);
+    const c = Math.random() < 0.7 ? base : second;
+    sparks.push({ rocket: false, x: r.x, y: r.y, z: r.z, vx: k * Math.cos(a) * v, vy: u * v + 2, vz: k * Math.sin(a) * v, life: 0, max: 1.3 + Math.random() * 0.9, c });
+  }
+  if (soundOn) music.pop(r.big);
+}
+
+function updateFireworks(dt, now) {
+  while (launchQueue.length && launchQueue[0].at <= now) {
+    const q = launchQueue.shift();
+    sparks.push({ rocket: true, x: q.x, y: q.y, z: q.z, vx: 0, vy: 26, vz: 0, life: 0, max: (q.big ? 14 : 8 + Math.random() * 5) / 26, c: WHITE, big: q.big });
+  }
+  let n = 0;
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const p = sparks[i];
+    p.life += dt;
+    if (p.life >= p.max) {
+      if (p.rocket) burst(p);
+      sparks.splice(i, 1);
+      continue;
+    }
+    if (!p.rocket) { p.vy -= 6 * dt; const drag = 1 - 1.4 * dt; p.vx *= drag; p.vy *= drag; p.vz *= drag; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    if (n >= MAX_SPARKS) continue;
+    const fade = p.rocket ? 1.5 : Math.pow(1 - p.life / p.max, 1.5) * 3;
+    sparkPos[n * 3] = p.x; sparkPos[n * 3 + 1] = p.y; sparkPos[n * 3 + 2] = p.z;
+    sparkCol[n * 3] = p.c.r * fade; sparkCol[n * 3 + 1] = p.c.g * fade; sparkCol[n * 3 + 2] = p.c.b * fade;
+    n++;
+  }
+  sparkGeo.setDrawRange(0, n);
+  sparkGeo.attributes.position.needsUpdate = true;
+  sparkGeo.attributes.color.needsUpdate = true;
+}
+
+// The gain step is the number of full steps above the previous close. A firework fires when the step goes up.
+// A snap (a day change, a scrub or the loop back to the open) resets the steps with no fireworks.
+// The steps match how rare each move is. A stock up 5%, a sector up 2.5% or SPY up 2% is a notable day.
+const STEP_STOCK = 5, STEP_SECTOR = 2.5, STEP_SPY = 2;
+const gainStep = (p, step) => Math.max(0, Math.floor(p / step));
+function checkGains(levels, key, p, step, fire) {
+  const now = gainStep(p, step);
+  if (!snap && now > (levels.get(key) ?? now)) fire();
+  levels.set(key, now);
+}
+const levels = new Map();
+
+// ---------- Theme switch ----------
+function applyTheme(name) {
+  theme = THEMES[name];
+  UP.set(theme.up); DOWN.set(theme.down); FLAT.set(theme.flat);
+  document.documentElement.style.setProperty("--up", theme.up);
+  document.documentElement.style.setProperty("--down", theme.down === "#0f3a1a" ? "#2f8a4a" : theme.down);
+  drawLogo();
+  towerUniforms.facade.value.set(theme.facade[0]);
+  towerUniforms.facadeWin.value.set(theme.facade[1]);
+  towerUniforms.roof.value.set(theme.roof);
+  towerUniforms.tints.value.forEach((c, i) => c.set(theme.tints[i % theme.tints.length]));
+  towerUniforms.gain.value = theme.windowGain;
+  spire.material.color.set(theme.spire);
+  for (const d of districts) d.pad.material.color.set(theme.pad);
+  edgeLines.visible = theme.edges > 0;
+  for (const t of towers) {
+    if (t.blade) t.blade.visible = theme.blades;
+  }
+  hemi.color.set(theme.hemi[0]); hemi.groundColor.set(theme.hemi[1]);
+  moon.color.set(theme.moon[0]); moon.intensity = theme.moon[1];
+  wet.material.opacity = theme.wet; mirror.visible = theme.wet < 0.95;
+  grid.visible = Boolean(theme.grid); if (theme.grid) grid.material.color.set(theme.grid);
+  sun.visible = theme.sun;
+  flyerMesh.visible = theme.flyers;
+  searchlights.forEach((s, i) => {
+    s.visible = Boolean(theme.searchlights) && i < theme.searchlights.length;
+    if (s.visible) s.material.color.set(theme.searchlights[i]);
+  });
+  [bloom.strength, bloom.radius, bloom.threshold] = theme.bloom;
+  rain.material.color.set(theme.rain);
+  const head = col(theme.cars[0]).multiplyScalar(2.2), tail = col(theme.cars[1]).multiplyScalar(2.0);
+  cars.forEach((c, i) => carMesh.setColorAt(i, c.dir > 0 ? head : tail));
+  carMesh.instanceColor.needsUpdate = true;
+  const flyerColors = [col(theme.tints[0]), col(theme.up), col(theme.cars[1]), col("#ffffff")].map((c) => c.multiplyScalar(2.4));
+  flyers.forEach((_, i) => flyerMesh.setColorAt(i, flyerColors[i % flyerColors.length]));
+  flyerMesh.instanceColor.needsUpdate = true;
+  for (const k of ["ca", "scan", "grain", "vig"]) post.uniforms[k].value = theme.post[k];
+  placeCamera();
+  try { localStorage.setItem("market-city-theme", name); } catch { /* Storage is optional. */ }
+}
+
+// ---------- Derived series ----------
+// Realized volatility uses the SPY minute returns over the last 20 minutes, annualized.
+function realizedVol(pct) {
+  const out = new Array(SLOTS).fill(0);
+  const r = pct.map((p, i) => (i === 0 ? 0 : Math.log((1 + p / 100) / (1 + pct[i - 1] / 100))));
+  for (let i = 1; i < SLOTS; i++) {
+    const w = r.slice(Math.max(1, i - 19), i + 1);
+    const m = w.reduce((a, b) => a + b, 0) / w.length;
+    const sd = Math.sqrt(w.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, w.length - 1));
+    out[i] = sd * Math.sqrt(390 * 252) * 100;
+  }
+  out[0] = out[1];
+  return out;
+}
+// Traffic uses SPY volume against its 20-day minute average, over the last 10 minutes.
+// The open and close auctions are capped so that they do not flood the streets.
+function trafficLevel(ratio) {
+  return ratio.map((_, i) => {
+    const w = ratio.slice(Math.max(0, i - 9), i + 1).map((v) => Math.min(v, 4));
+    return w.reduce((a, b) => a + b, 0) / w.length;
+  });
+}
+// The function prepares a day for playback. A day in progress (today) ends at lastMinute.
+// The slots after lastMinute hold the last value, so the derived series stay defined. Playback never goes past the end.
+function prepDay(d) {
+  d.end = d.lastMinute ?? SLOTS - 1;
+  for (const s of Object.values(d.series)) {
+    const last = s.pct[Math.max(0, d.end)] ?? 0;
+    for (let m = d.end + 1; m < SLOTS; m++) s.pct[m] = last;
+    if (s.volRatio) for (let m = 0; m < SLOTS; m++) s.volRatio[m] ??= 0;
+  }
+  d.rv = realizedVol(d.series.SPY.pct);
+  d.traffic = trafficLevel(d.series.SPY.volRatio);
+  return d;
+}
+data.days.forEach(prepDay);
+
+// ---------- State ----------
+const params = new URLSearchParams(location.search);
+// The debug flag exposes the renderer, so draw calls can be checked from the console.
+if (params.has("debug")) window.__renderer = renderer;
+// An explicit ?day=N opens that example. Otherwise the page opens on the newest example and moves to today when it loads.
+const exampleParam = params.has("day") && params.get("day") !== "today" ? Number(params.get("day")) : null;
+let dayIdx = exampleParam ?? data.days.length - 1, minute = Number(params.get("m") ?? 0), playing = !params.has("m"), speed = 5;
+// In live mode the city follows the newest minute of today. A scrub or Play leaves live mode.
+let live = false;
+// The snap flag skips the easing for one frame after a day change or a scrub.
+let snap = true;
+const smooth = { weather: 0, traffic: 0.5, spy: 0, lightning: 0 };
+
+// ---------- UI ----------
+// Today is the main view. The sample days sit in the Examples menu.
+let todayIdx = -1;
+const examplesEl = document.getElementById("examples");
+const todayOpt = examplesEl.options[0];
+const exampleGroup = examplesEl.querySelector("optgroup");
+const shortDay = (date) => { const [y, m, dd] = date.split("-"); return `${Number(m)}/${Number(dd)}/${y.slice(2)}`; };
+data.days.forEach((d, i) => exampleGroup.append(new Option(`${d.label} · ${shortDay(d.date)}`, String(i))));
+examplesEl.onchange = () => selectDay(examplesEl.value === "today" ? todayIdx : Number(examplesEl.value));
+
+function selectDay(i) {
+  dayIdx = i; snap = true;
+  const d = data.days[i];
+  live = Boolean(d.live);
+  minute = live ? d.end : 0;
+  if (live) setPlaying(false);
+  scrub.max = String(Math.max(0, d.end));
+  syncDayControls();
+}
+function syncDayControls() {
+  examplesEl.value = todayIdx >= 0 && dayIdx === todayIdx ? "today" : String(dayIdx);
+}
+syncDayControls();
+
+// Today comes from the local server (server.mjs). It is live during the session and a replay after the close.
+// Before the open the server sends the last full session, labelled "Last session".
+// The page polls every 30 seconds while the market is open.
+// todayRaw keeps the server arrays without the fill that prepDay adds, so new minutes can merge into it.
+let todayRaw = null;
+async function loadToday() {
+  const query = todayRaw ? `?date=${todayRaw.date}&since=${Math.max(0, todayRaw.lastMinute)}` : "";
+  const res = await fetch(`api/today${query}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`api/today ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const payload = await res.json();
+  if (payload.from === undefined) todayRaw = payload;
+  else {
+    // A delta payload holds the minutes from `from` to lastMinute. They overwrite the same slots in the raw arrays.
+    for (const [t, s] of Object.entries(payload.series)) {
+      const raw = todayRaw.series[t] ??= { pct: new Array(SLOTS).fill(null), ...(s.volRatio ? { volRatio: new Array(SLOTS).fill(null) } : {}) };
+      s.pct.forEach((v, i) => (raw.pct[payload.from + i] = v));
+      s.volRatio?.forEach((v, i) => (raw.volRatio[payload.from + i] = v));
+    }
+    Object.assign(todayRaw, { label: payload.label, live: payload.live, lastMinute: payload.lastMinute, asOf: payload.asOf });
+  }
+  if (!todayRaw.series?.SPY) throw new Error(`api/today has no SPY series for ${todayRaw.date}`);
+  const series = Object.fromEntries(Object.entries(todayRaw.series).map(([t, s]) => [t, { pct: [...s.pct], ...(s.volRatio ? { volRatio: [...s.volRatio] } : {}) }]));
+  const d = prepDay({ ...todayRaw, series });
+  if (todayIdx < 0) { todayIdx = data.days.length; data.days.push(d); }
+  else data.days[todayIdx] = d;
+  const open = d.end >= 0;
+  todayOpt.textContent = open ? (d.live ? "● Live" : d.label) : "Today · opens 9:30";
+  todayOpt.disabled = !open;
+  if (dayIdx === todayIdx) { scrub.max = String(Math.max(0, d.end)); if (live) minute = d.end; }
+  syncDayControls();
+  return d;
+}
+loadToday()
+  .then((d) => { if (exampleParam === null && d.end >= 0) selectDay(todayIdx); })
+  .catch((err) => {
+    todayOpt.textContent = "Today · no data";
+    console.warn({ err: err.message }, "today is not available; run server.mjs for live data");
+  });
+// The poll also runs outside market hours, so the page moves from the last session to today at the open.
+setInterval(() => {
+  // Until today loads once, the poll keeps trying, so a failed first load recovers on its own.
+  if (todayIdx < 0) {
+    loadToday().then((d) => { if (exampleParam === null && d.end >= 0) selectDay(todayIdx); }).catch((err) => console.warn({ err: err.message }, "today still not available"));
+    return;
+  }
+  const wasLastSession = data.days[todayIdx].label !== "Today";
+  loadToday()
+    .then((d) => { if (wasLastSession && d.label === "Today" && dayIdx === todayIdx) selectDay(todayIdx); })
+    .catch((err) => console.warn({ err: err.message }, "today refresh failed"));
+}, 30_000);
+
+const themeEl = document.getElementById("theme");
+for (const [key, t] of Object.entries(THEMES)) themeEl.add(new Option(t.label, key));
+let savedTheme = null;
+try { savedTheme = localStorage.getItem("market-city-theme"); } catch { /* Storage is optional. */ }
+const startTheme = [params.get("theme"), savedTheme, "synthwave"].find((k) => k && THEMES[k]);
+themeEl.value = startTheme;
+themeEl.onchange = () => { applyTheme(themeEl.value); restyleMusic(); };
+applyTheme(startTheme);
+
+const playBtn = document.getElementById("play");
+function setPlaying(on) {
+  playing = on;
+  playBtn.textContent = playing ? "Pause" : "Play"; playBtn.setAttribute("aria-pressed", String(playing));
+}
+playBtn.onclick = () => { if (!playing) live = false; setPlaying(!playing); };
+setPlaying(playing);
+// The speed button cycles 1x, 5x and 20x.
+const SPEEDS = [1, 5, 20];
+const speedBtn = document.getElementById("speed");
+speedBtn.onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; speedBtn.textContent = `${speed}×`; };
+const scrub = document.getElementById("scrub");
+scrub.oninput = () => { minute = Number(scrub.value); snap = true; live = false; };
+// The Key panel shows the same text as the "How to read it" section, so the text lives in one place.
+document.getElementById("legend").innerHTML = document.getElementById("howItems").innerHTML;
+
+// Full screen fills the display with the hero. The button, the page button and the F key all toggle it.
+const fsBtn = document.getElementById("fullscreen");
+const ICON_EXPAND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>';
+const ICON_SHRINK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
+const isFullscreen = () => Boolean(document.fullscreenElement ?? document.webkitFullscreenElement);
+function toggleFullscreen() {
+  if (isFullscreen()) (document.exitFullscreen ?? document.webkitExitFullscreen).call(document);
+  else (frame.requestFullscreen ?? frame.webkitRequestFullscreen).call(frame);
+}
+function syncFullscreen() {
+  const on = isFullscreen();
+  fsBtn.innerHTML = on ? ICON_SHRINK : ICON_EXPAND;
+  fsBtn.setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
+}
+fsBtn.onclick = toggleFullscreen;
+document.getElementById("fullscreen2").onclick = toggleFullscreen;
+document.addEventListener("fullscreenchange", syncFullscreen);
+document.addEventListener("webkitfullscreenchange", syncFullscreen);
+addEventListener("keydown", (e) => { if (e.key.toLowerCase() === "f" && e.target === document.body) toggleFullscreen(); });
+syncFullscreen();
+
+document.getElementById("key").onclick = (e) => e.currentTarget.setAttribute("aria-expanded", String(document.getElementById("legend").classList.toggle("open")));
+
+// Sound is on by default, and the speaker button mutes it. The choice is remembered.
+// Browsers block sound until the user acts. Any click, drag, touch or key press starts it.
+// The resume call runs inside the gesture handler, because Safari requires that.
+let music = null, soundOn = false, starting = null;
+let wantSound = true;
+try { wantSound = localStorage.getItem("market-city-sound") !== "0"; } catch { /* Storage is optional. */ }
+// ?sound=0 starts silent for this visit only (for screenshots and embeds). It does not change the saved choice.
+if (new URLSearchParams(location.search).get("sound") === "0") wantSound = false;
+const soundBtn = document.getElementById("sound");
+const soundHint = document.getElementById("soundHint");
+// Line icons for the sound button. The stroke uses the text color.
+const icon = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const SPEAKER = '<path d="M11 5 6 9H2v6h4l5 4z"/>';
+const ICON_SOUND = icon(`${SPEAKER}<path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>`);
+const ICON_MUTED = icon(`${SPEAKER}<path d="m22 9-6 6"/><path d="m16 9 6 6"/>`);
+const audioCtx = () => window.Tone.getContext().rawContext;
+function syncSoundButton() {
+  soundHint.hidden = !(wantSound && !soundOn && audioCtx().state !== "running");
+  soundBtn.innerHTML = wantSound ? ICON_SOUND : ICON_MUTED;
+  soundBtn.setAttribute("aria-pressed", String(wantSound));
+  soundBtn.setAttribute("aria-label", wantSound ? "Mute" : "Unmute");
+  soundBtn.title = `${wantSound ? "Mute" : "Unmute"} (M)${music ? ` · seed #${music.seed}` : ""}`;
+}
+// Each theme change loads that theme's sound and draws a new seed. The song starts again from bar 1.
+function restyleMusic() {
+  if (!music) return;
+  music.restyle(themeEl.value);
+  syncSoundButton();
+}
+async function setSound(on) {
+  if (!on) { if (soundOn) music.stop(); soundOn = false; syncSoundButton(); return; }
+  if (soundOn) return;
+  if (!music) { music = createMusic(window.Tone); music.onSong = syncSoundButton; restyleMusic(); }
+  starting ??= music.start().then(() => { soundOn = true; }).finally(() => { starting = null; syncSoundButton(); });
+  await starting;
+}
+// When sound is wanted but not playing yet (the browser blocked it), the speaker starts it. Otherwise the speaker toggles mute.
+soundBtn.onclick = (e) => {
+  e.stopPropagation();
+  if (wantSound && !soundOn) { audioCtx().resume(); setSound(true); return; }
+  wantSound = !wantSound;
+  try { localStorage.setItem("market-city-sound", wantSound ? "1" : "0"); } catch { /* Storage is optional. */ }
+  if (wantSound) audioCtx().resume();
+  setSound(wantSound);
+};
+const GESTURES = ["pointerdown", "mousedown", "touchend", "click", "keydown"];
+function onGesture(e) {
+  // The M key and the speaker button handle sound themselves, so they do not count as the gesture that starts it.
+  if (e.type === "keydown" && e.key.toLowerCase() === "m") return;
+  if (soundBtn.contains(e.target)) return;
+  if (!wantSound || soundOn) return;
+  audioCtx().resume();
+  setSound(true);
+}
+// Capture phase: the 3D view controls cannot stop the event before the page sees it.
+// Only interaction with the city starts the sound, so links and scrolling elsewhere on the page stay silent.
+GESTURES.filter((t) => t !== "keydown").forEach((t) => frame.addEventListener(t, onGesture, true));
+// The page also tries to start at once. This works when the browser already allows sound for this site.
+if (wantSound) audioCtx().resume().then(() => { if (audioCtx().state === "running") setSound(true); }).catch(() => {});
+setTimeout(syncSoundButton, 500);
+addEventListener("keydown", (e) => { if (e.key.toLowerCase() === "m" && e.target === document.body) soundBtn.click(); });
+syncSoundButton();
+
+// The control bar collapses to one small button. The H key toggles it too.
+const controlsEl = document.querySelector(".controls"), collapseBtn = document.getElementById("collapse");
+function setCollapsed(on) {
+  controlsEl.classList.toggle("collapsed", on);
+  collapseBtn.textContent = on ? "▴" : "▾";
+  collapseBtn.setAttribute("aria-label", on ? "Show controls" : "Hide controls");
+  try { localStorage.setItem("market-city-collapsed", on ? "1" : "0"); } catch { /* Storage is optional. */ }
+}
+collapseBtn.onclick = () => setCollapsed(!controlsEl.classList.contains("collapsed"));
+addEventListener("keydown", (e) => { if (e.key.toLowerCase() === "h" && e.target === document.body) collapseBtn.click(); });
+try { if (localStorage.getItem("market-city-collapsed") === "1") setCollapsed(true); } catch { /* Storage is optional. */ }
+
+const dayEl = document.getElementById("day"), clockEl = document.getElementById("clock");
+const fmtPct = (p) => `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`;
+const fmtClock = (m) => { const t = 570 + Math.floor(m); const h = Math.floor(t / 60), mm = t % 60; return `${((h + 11) % 12) + 1}:${String(mm).padStart(2, "0")} ${h < 12 ? "AM" : "PM"} ET`; };
+
+// Hover shows the numbers for one tower.
+const tip = document.getElementById("tip");
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+let hoverEvent = null;
+renderer.domElement.addEventListener("pointermove", (e) => (hoverEvent = e));
+renderer.domElement.addEventListener("pointerleave", () => { hoverEvent = null; tip.style.display = "none"; });
+function updateTip() {
+  if (!hoverEvent) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.set(((hoverEvent.clientX - rect.left) / rect.width) * 2 - 1, -((hoverEvent.clientY - rect.top) / rect.height) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(pickables, false)[0];
+  if (!hit) { tip.style.display = "none"; return; }
+  const t = hit.object === towerMesh ? towers[hit.instanceId] : hit.object.userData.tower;
+  const d = data.days[dayIdx], m = Math.floor(minute);
+  if (!d.series[t.ticker]) {
+    tip.innerHTML = `<b>${t.ticker}</b> <span style="color:var(--muted)">no data on ${d.date}</span>`;
+    tip.style.display = "block";
+    tip.style.left = `${hoverEvent.clientX - rect.left + 12}px`;
+    tip.style.top = `${hoverEvent.clientY - rect.top + 12}px`;
+    return;
+  }
+  const p = d.series[t.ticker].pct[m];
+  const sec = t.sector.etf ? ` · ${t.sector.name} ${fmtPct(d.series[t.sector.etf].pct[m])}` : "";
+  tip.innerHTML = `<b>${t.ticker}</b> <span style="color:${p >= 0 ? "var(--up)" : "var(--down)"}">${fmtPct(p)}</span><span style="color:var(--muted)">${sec}</span>`;
+  tip.style.display = "block";
+  tip.style.left = `${hoverEvent.clientX - rect.left + 12}px`;
+  tip.style.top = `${hoverEvent.clientY - rect.top + 12}px`;
+}
+
+// ---------- Resize ----------
+function resize() {
+  const w = frame.clientWidth, h = frame.clientHeight;
+  // A hidden or collapsed hero has zero size. Rendering at zero size fails, so the size stays as it was.
+  if (w === 0 || h === 0) return;
+  renderer.setSize(w, h); composer.setSize(w, h); bloom.setSize(w, h);
+  post.uniforms.res.value.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
+  camera.aspect = w / h;
+  camera.fov = w / h < 1.2 ? 48 : 38;
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize);
+// The canvas follows the hero size, which changes with full screen and with the page layout.
+new ResizeObserver(resize).observe(frame);
+// Rendering pauses while the hero is scrolled out of view. The data and the music keep going.
+let heroVisible = true;
+new IntersectionObserver(([entry]) => { heroVisible = entry.isIntersecting; }).observe(frame);
+resize();
+
+// The camera starts at the theme view. The corner size uses a high overview.
+function placeCamera() {
+  const cam = theme.cam;
+  const a = Math.atan2(camera.position.x, camera.position.z) || 0.6;
+  camera.position.set(Math.sin(a) * cam.r, cam.h, Math.cos(a) * cam.r);
+  controls.target.set(0, cam.look, 0);
+  controls.update();
+}
+renderer.domElement.addEventListener("dblclick", placeCamera);
+
+// ---------- Mapping helpers ----------
+const moveColor = (p, full) => FLAT.clone().lerp(p >= 0 ? UP : DOWN, clamp(Math.abs(p) / full, 0, 1));
+const skyFlat = { top: new THREE.Color(), horizon: new THREE.Color() };
+
+// ---------- Keyboard movement ----------
+// WASD moves the camera over the city like a game: W and S along the view, A and D to the sides.
+// Q and E turn the view. Shift moves faster. Keys in a form control do not move the camera.
+const held = new Set();
+const MOVE_KEYS = new Set(["w", "a", "s", "d", "q", "e"]);
+addEventListener("keydown", (e) => {
+  if (e.target.closest?.("input, select, textarea") || e.metaKey || e.ctrlKey) return;
+  const k = e.key.toLowerCase();
+  if (!MOVE_KEYS.has(k)) return;
+  held.add(k);
+  controls.autoRotate = false;
+  clearTimeout(idleTimer);
+  e.preventDefault();
+});
+addEventListener("keyup", (e) => {
+  held.delete(e.key.toLowerCase());
+  if (held.size === 0) { clearTimeout(idleTimer); idleTimer = setTimeout(() => (controls.autoRotate = true), 8000); }
+});
+addEventListener("blur", () => held.clear());
+const fwd = new THREE.Vector3(), side = new THREE.Vector3(), step = new THREE.Vector3();
+function moveWithKeys(dt, shift) {
+  if (held.size === 0) return;
+  fwd.subVectors(controls.target, camera.position).setY(0);
+  if (fwd.lengthSq() < 1e-6) return;
+  fwd.normalize();
+  side.crossVectors(fwd, camera.up).normalize();
+  const dist = camera.position.distanceTo(controls.target);
+  const speed = (12 + dist * 0.6) * (shift ? 2.5 : 1) * dt;
+  step.set(0, 0, 0)
+    .addScaledVector(fwd, (held.has("w") ? 1 : 0) - (held.has("s") ? 1 : 0))
+    .addScaledVector(side, (held.has("d") ? 1 : 0) - (held.has("a") ? 1 : 0));
+  if (step.lengthSq() > 0) {
+    step.normalize().multiplyScalar(speed);
+    // The camera target stays inside the city, with a margin of one block.
+    const limitX = city.halfWidth + 10, limitZ = city.halfDepth + 10;
+    const nx = clamp(controls.target.x + step.x, -limitX, limitX) - controls.target.x;
+    const nz = clamp(controls.target.z + step.z, -limitZ, limitZ) - controls.target.z;
+    step.set(nx, 0, nz);
+    controls.target.add(step);
+    camera.position.add(step);
+  }
+  const turn = (held.has("e") ? 1 : 0) - (held.has("q") ? 1 : 0);
+  if (turn) {
+    const offset = camera.position.clone().sub(controls.target);
+    offset.applyAxisAngle(camera.up, -turn * 1.2 * dt);
+    camera.position.copy(controls.target).add(offset);
+  }
+}
+let shiftHeld = false;
+addEventListener("keydown", (e) => { if (e.key === "Shift") shiftHeld = true; });
+addEventListener("keyup", (e) => { if (e.key === "Shift") shiftHeld = false; });
+
+// ---------- Loop ----------
+const clock = new THREE.Clock();
+function tick() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const now = performance.now() / 1000;
+  const ease = (rate) => (snap ? 1 : 1 - Math.exp(-dt * rate));
+  const d = data.days[dayIdx];
+  if (live) minute = d.end;
+  else if (playing) { minute += dt * speed; if (minute > d.end) { minute = 0; snap = true; } }
+  const m = Math.floor(minute);
+  scrub.value = String(m);
+
+  // The SPY move sets the sky mood. The realized volatility sets the weather.
+  const spy = d.series.SPY.pct[m];
+  smooth.spy = lerp(smooth.spy, spy, ease(3));
+  smooth.weather = lerp(smooth.weather, clamp((d.rv[m] - 12) / 40, 0, 1), ease(1.5));
+  smooth.traffic = lerp(smooth.traffic, d.traffic[m], ease(2));
+  const w = smooth.weather;
+
+  // The flat sky moves from dusk at the open to night at the close.
+  const s = theme.sky, night = minute / SLOTS;
+  skyFlat.top.set(s.dusk[0]).lerp(col(s.night[0]), night);
+  skyFlat.horizon.set(s.dusk[1]).lerp(col(s.night[1]), night);
+  const mood = Math.sign(smooth.spy) * Math.sqrt(clamp(Math.abs(smooth.spy) / 2, 0, 1));
+  const a = mood >= 0 ? s.up : s.down, k = Math.abs(mood);
+  skyUniforms.top.value.copy(skyFlat.top).lerp(col(a[0]), k).lerp(col(s.storm), w * 0.7);
+  skyUniforms.horizon.value.copy(skyFlat.horizon).lerp(col(a[1]), k).lerp(col(s.storm), w * 0.75);
+  scene.fog.color.copy(skyUniforms.horizon.value).multiplyScalar(0.55);
+  scene.fog.density = 0.004 + w * 0.008;
+
+  // Lightning flashes start when the weather passes 0.6.
+  if (w > 0.6 && Math.random() < dt * (w - 0.55) * 4) { smooth.lightning = 1; if (soundOn) music.thunder(); }
+  smooth.lightning = Math.max(0, smooth.lightning - dt * 5);
+  const flash = smooth.lightning * (0.6 + 0.4 * Math.sin(now * 90));
+  skyUniforms.flash.value = flash * 0.5;
+  hemi.intensity = theme.hemi[2] + flash * 2.5;
+
+  // Rain shows at weather 0.3 and above. Some themes keep a light drizzle under that.
+  const rainAmt = Math.max(theme.drizzle, clamp((w - 0.3) / 0.6, 0, 1));
+  const nDrops = Math.floor(rainAmt * MAX_DROPS);
+  for (let i = 0; i < nDrops; i++) {
+    const p = drops[i];
+    p.y -= p.v * dt; if (p.y < 0) { p.y = 70 + Math.random() * 10; p.x = (Math.random() - 0.5) * 240; p.z = (Math.random() - 0.5) * 190; }
+    const o = i * 6;
+    rainPos[o] = p.x; rainPos[o + 1] = p.y; rainPos[o + 2] = p.z;
+    rainPos[o + 3] = p.x + 0.15; rainPos[o + 4] = p.y + 1.1; rainPos[o + 5] = p.z;
+  }
+  rainGeo.setDrawRange(0, nDrops * 2);
+  rainGeo.attributes.position.needsUpdate = true;
+
+  // Towers: the lit-window bucket, the edges, the beacon and the blade sign follow the stock move.
+  for (const t of towers) {
+    // A stock with no data on this day (not listed yet) stays dark and grey. It shows no move.
+    const series = d.series[t.ticker];
+    if (!series) {
+      towerLit.array[t.slot] = 0;
+      beaconMesh.setColorAt(t.slot, tmpColor.setScalar(0.08));
+      setEdgeColor(t.slot, tmpColor.setScalar(0.08 * theme.edges));
+      if (t.blade) t.blade.material.color.setScalar(0.15);
+      continue;
+    }
+    const p = series.pct[m];
+    t.shown = lerp(t.shown, p, ease(4));
+    towerLit.array[t.slot] = clamp(0.5 + t.shown / 4, 0.04, 1);
+    checkGains(levels, t.ticker, p, STEP_STOCK, () => queueFirework(t.pos.x, t.h, t.pos.z, false));
+    const c = moveColor(t.shown, 3), mag = clamp(Math.abs(t.shown) / 3, 0, 1);
+    beaconMesh.setColorAt(t.slot, tmpColor.copy(c).multiplyScalar(0.5 + mag * 1.8));
+    if (theme.edges > 0) setEdgeColor(t.slot, tmpColor.copy(c).multiplyScalar((0.3 + mag * 1.4) * theme.edges));
+    // A blade sign flickers a little, like an old neon tube.
+    if (t.blade) t.blade.material.color.copy(c).multiplyScalar((1.2 + mag * 1.6) * (Math.sin(now * 23 + t.slot) > 0.97 ? 0.3 : 1));
+  }
+  beaconMesh.instanceColor.needsUpdate = true;
+  towerLit.needsUpdate = true;
+  edgeGeoAll.attributes.color.needsUpdate = true;
+  // District pads and signs glow with the sector ETF move.
+  for (const dist of districts) {
+    const p = d.series[dist.sector.etf].pct[m];
+    checkGains(levels, dist.sector.etf, p, STEP_SECTOR, () => queueFirework(dist.pad.position.x, 2, dist.pad.position.z, false));
+    dist.pad.material.emissive.copy(moveColor(p, 2.5)).multiplyScalar(clamp(Math.abs(p) / 2.5, 0, 1) * 0.35);
+    dist.sign.material.color.copy(moveColor(p, 2.5)).multiplyScalar(1.4);
+    dist.sign.visible = theme.signs;
+  }
+  checkGains(levels, "SPY", spy, STEP_SPY, () => queueFirework(plaza.x, SPIRE_H, plaza.z, true));
+  updateFireworks(dt, now);
+  const spyC = moveColor(smooth.spy, 2.5);
+  // The crown shows SPY. The LED bands scroll up when SPY is up and down when it is down.
+  crown.material.color.copy(spyC).multiplyScalar(1.3 + Math.min(Math.abs(smooth.spy), 3) * 0.6);
+  crownBands.offset.y = (crownBands.offset.y - dt * 0.4 * Math.sign(smooth.spy)) % 1;
+  spire.material.emissive.copy(spyC);
+  blinker.visible = Math.sin(now * 3) > 0.6;
+  // The cyberpunk tube sign buzzes now and then, like a failing neon tube.
+  if (theme.logo.tube && theme.logo.blades) blades[0].m.material.color.setScalar(Math.sin(now * 17) > 0.985 ? 0.4 : theme.logo.gain);
+  if (holo.visible) { holo.rotation.y += dt * 0.25; holoUniforms.time.value = now % 1000; }
+  plazaRing.material.color.copy(spyC).multiplyScalar(1.2);
+
+  // Traffic: a traffic level of 1 is a normal minute. The level 4 fills every car.
+  const busy = clamp(smooth.traffic / 4, 0.04, 1);
+  moveFleet(carMesh, cars, Math.floor(busy * MAX_CARS), dt);
+  if (theme.flyers) moveFleet(flyerMesh, flyers, Math.floor(clamp(busy * 1.5, 0.15, 1) * MAX_FLYERS), dt);
+
+  for (const sl of searchlights) {
+    if (!sl.visible) continue;
+    const ph = now * 0.35 + sl.userData.phase;
+    sl.rotation.set(Math.sin(ph) * 0.45, 0, Math.cos(ph * 0.8) * 0.45);
+  }
+
+  moveWithKeys(dt, shiftHeld);
+  controls.update(dt);
+  if (soundOn) {
+    Object.assign(music.state, { spy: smooth.spy, weather: w, traffic: smooth.traffic });
+    data.sectors.forEach((sec, i) => (music.state.sectors[i] = d.series[sec.etf].pct[m]));
+  }
+  if (sun.visible) {
+    sun.position.set(-camera.position.x, 0, -camera.position.z).normalize().multiplyScalar(320).setY(38);
+    sun.lookAt(camera.position);
+  }
+  post.uniforms.time.value = now % 100;
+
+  dayEl.innerHTML = `${d.label} · ${d.date}${live ? ' · <span class="live">● LIVE</span>' : ""}`;
+  clockEl.textContent = `${fmtClock(minute)} · vol ${d.rv[m].toFixed(0)} · traffic ${d.traffic[m].toFixed(1)}×${soundOn ? ` · ♪ ${music.section}` : ""}`;
+  updateTip();
+
+  snap = false;
+  if (heroVisible) composer.render();
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>

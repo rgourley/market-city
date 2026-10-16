@@ -1,0 +1,6 @@
+.env.local
+Dockerfile
+server.mjs
+constituents.json
+node_modules
+.git
