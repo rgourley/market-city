@@ -1,6 +1,6 @@
 // The Vercel function for GET /api/today. It does the same job as the server.mjs route.
 // The session lives in the Vercel Runtime Cache, so function calls share it.
-// The CDN keeps each response for 25 seconds, so all viewers share one function call per query.
+// The CDN keeps each response for 30 seconds, so all viewers share one function call per query.
 // Set MASSIVE_API_KEY in the Vercel project environment variables.
 import { getCache } from "@vercel/functions";
 import universe from "../universe.json" with { type: "json" };
@@ -24,7 +24,7 @@ export async function GET(request) {
   const since = url.searchParams.has("since") ? Number(url.searchParams.get("since")) : null;
   try {
     const body = await today.payload(url.searchParams.get("date"), since);
-    return Response.json(body, { headers: { "Cache-Control": "public, s-maxage=25, stale-while-revalidate=30" } });
+    return Response.json(body, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" } });
   } catch (err) {
     console.error({ path: url.pathname, err: err.message }, "today failed");
     // The client gets a generic message. The details stay in the function log.

@@ -86,7 +86,7 @@ The code that talks to Massive lives in `lib/today.mjs`, and each host wraps it.
 
 **Vercel**: import the repo and add `MASSIVE_API_KEY` as an environment variable. The page is served as static files and `api/today.mjs` runs as a function. The session lives in the Vercel Runtime Cache, and the CDN keeps each response for 25 seconds, so a crowd of viewers shares about two function calls a minute.
 
-The session refreshes on demand: a request that finds the data older than 25 seconds refreshes it with one Massive snapshot call. Building a new day takes about 210 calls, once per day.
+The session refreshes on demand: a request that finds the data older than a minute refreshes it with one Massive snapshot call. Building a new day takes about 210 calls, once per day.
 
 ## Data
 
