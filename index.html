@@ -263,7 +263,7 @@ const THEMES = {
     sky: { dusk: ["#2b0b4f", "#ff6a3d"], night: ["#0d0221", "#7a1f6a"], up: ["#3b0d6b", "#ffb347"], down: ["#090218", "#3a1050"], storm: "#1a0d26" },
     hemi: ["#ff6ad5", "#0d0221", 0.6], moon: ["#ff9a3d", 0.4],
     windowGain: 1.0, edges: 1.1, signs: true, blades: false, flyers: false, searchlights: null,
-    grid: "#ff2fd0", sun: true, wet: 0.85, bloom: [0.75, 0.5, 0.45], rain: "#ff9ae0", drizzle: 0,
+    grid: "#ff2fd0", sun: true, haze: 0.75, wet: 0.85, bloom: [0.65, 0.5, 0.45], rain: "#ff9ae0", drizzle: 0,
     post: { ca: 0.02, scan: 0.18, grain: 0.03, vig: 0.45 }, cars: ["#ffe0a0", "#ff2975"],
     cam: { r: 78, h: 24, look: 18 },
     logo: { blades: false, colors: ["#ff2975", "#ff2975"], gain: 1.4, holo: ["#ffd319", "#ff2975"] },
@@ -1064,13 +1064,13 @@ function loadExample(i) {
   }
   return dayLoads.get(i);
 }
-function selectDay(i) {
+function selectDay(i, startMinute = 0) {
   if (!data.days[i]?.series) {
     const label = `${data.days[i].label} · ${data.days[i].date}`;
     if (dayIdx < 0) document.getElementById("day").textContent = `Loading ${label}…`;
     examplesEl.value = String(i);
     loadExample(i)
-      .then(() => selectDay(i))
+      .then(() => selectDay(i, startMinute))
       .catch((err) => {
         console.warn({ err: err.message }, "sample day did not load");
         document.getElementById("day").textContent = "That day is unavailable right now. Try again in a minute.";
@@ -1081,7 +1081,7 @@ function selectDay(i) {
   dayIdx = i; snap = true;
   const d = data.days[i];
   live = Boolean(d.live);
-  minute = live ? d.end : 0;
+  minute = live ? d.end : Math.min(startMinute, d.end);
   if (live) setPlaying(false);
   scrub.max = String(Math.max(0, d.end));
   syncDayControls();
@@ -1127,7 +1127,7 @@ async function loadToday() {
   return d;
 }
 // The first view: an explicit ?day=N, else today, else the newest sample day if today has no data.
-if (exampleParam !== null && data.days[exampleParam]) selectDay(exampleParam);
+if (exampleParam !== null && data.days[exampleParam]) selectDay(exampleParam, Number(params.get("m") ?? 0));
 loadToday()
   .then((d) => { if (exampleParam === null) selectDay(d.end >= 0 ? todayIdx : universeData.examples.length - 1); })
   .catch((err) => {
@@ -1425,8 +1425,10 @@ function tick() {
   const a = mood >= 0 ? s.up : s.down, k = Math.abs(mood);
   skyUniforms.top.value.copy(skyFlat.top).lerp(col(a[0]), k).lerp(col(s.storm), w * 0.7);
   skyUniforms.horizon.value.copy(skyFlat.horizon).lerp(col(a[1]), k).lerp(col(s.storm), w * 0.75);
-  scene.fog.color.copy(skyUniforms.horizon.value).multiplyScalar(0.55);
-  scene.fog.density = 0.004 + w * 0.008;
+  // haze scales the fog for one theme. Below 1 the fog is thinner and darker, so far towers do not wash into the sky.
+  const haze = theme.haze ?? 1;
+  scene.fog.color.copy(skyUniforms.horizon.value).multiplyScalar(0.55 * (0.6 + 0.4 * haze));
+  scene.fog.density = (0.004 + w * 0.008) * haze;
 
   // Lightning flashes start when the weather passes 0.6.
   if (w > 0.6 && Math.random() < dt * (w - 0.55) * 4) { smooth.lightning = 1; if (soundOn) music.thunder(); }
