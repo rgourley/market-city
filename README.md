@@ -66,13 +66,13 @@ You need a Massive API key. The key stays on the server, and the page only ever 
 
 ### Which Massive plans work
 
-| Plan | Works | Data on the plan |
+| Plan | Works | What the page shows by default |
 |---|---|---|
-| Stocks Basic (free) | No | 5 calls a minute and no snapshots, so the city can't build |
+| Stocks Basic (free) | No | Nothing. It allows 5 calls a minute and has no snapshots, so the city can't build |
 | Stocks Starter | Yes | 15 minutes delayed |
 | Stocks Developer | Yes | 15 minutes delayed |
-| Stocks Advanced | Yes | Real time |
-| Business plans | Yes | See [massive.com/business](https://massive.com/business) |
+| Stocks Advanced | Yes | 15 minutes delayed |
+| Business plans | Yes | 15 minutes delayed |
 
 Plans and prices are on [massive.com/pricing](https://massive.com/pricing).
 
