@@ -11,6 +11,7 @@ const today = createToday({
   key: process.env.MASSIVE_API_KEY,
   tickers: ["SPY", ...universe.sectors.flatMap((s) => [s.etf, ...s.tickers])],
   store: { get: (k) => cache.get(k), set: (k, v, ttl) => cache.set(k, v, { ttl, name: "market-city-session" }) },
+  displayDelayMinutes: Number(process.env.DISPLAY_DELAY_MINUTES ?? 15),
 });
 
 // Only date and since are allowed. Other parameters would make new CDN cache keys, so they are rejected.

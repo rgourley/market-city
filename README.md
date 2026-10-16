@@ -66,15 +66,19 @@ You need a Massive API key. The key stays on the server, and the page only ever 
 
 ### Which Massive plans work
 
-| Plan | Works | Live view |
+| Plan | Works | What the page shows |
 |---|---|---|
 | Stocks Basic (free) | No | It allows 5 calls a minute and has no snapshots, so the city can't build |
-| Stocks Starter | Yes | 15 minutes delayed, and the page labels it that way |
-| Stocks Developer | Yes | 15 minutes delayed, and the page labels it that way |
-| Stocks Advanced | Yes | Real time |
-| Business plans | Yes | Real time |
+| Stocks Starter | Yes | 15 minutes delayed |
+| Stocks Developer | Yes | 15 minutes delayed |
+| Stocks Advanced | Yes | 15 minutes delayed by default. The data is real time, but the plan is for individual, non-professional use |
+| Stocks Business | Yes | Real time, with `DISPLAY_DELAY_MINUTES=0` |
 
 Plans and prices are on [massive.com/pricing](https://massive.com/pricing).
+
+### Showing it to other people
+
+Massive labels Starter, Developer and Advanced for individual use. A page anyone can open shows the data to other people, so the server holds back today's newest 15 minutes by default, and the page labels the view as delayed. Set `DISPLAY_DELAY_MINUTES=0` only if your plan allows real-time display to the public, for example Stocks Business. Check Massive's terms before you host it publicly.
 
 ### Start it
 
@@ -82,7 +86,7 @@ Plans and prices are on [massive.com/pricing](https://massive.com/pricing).
 cp .env.example .env.local
 ```
 
-Put your key after `MASSIVE_API_KEY=` in `.env.local`, then start the server (Node 22.9 or later):
+Put your key after `MASSIVE_API_KEY=` in `.env.local`. Leave `DISPLAY_DELAY_MINUTES=15` unless your plan allows real-time display. Then start the server (Node 22.9 or later):
 
 ```bash
 npm start
@@ -98,7 +102,7 @@ The code that talks to Massive lives in `lib/today.mjs`, and each host wraps it.
 
 **Docker** (Fly.io, or any container host): `docker build -t market-city .`, then run it with `-e MASSIVE_API_KEY=...` and port 8811.
 
-**Vercel**: import the repo and add `MASSIVE_API_KEY` as an environment variable. The page is served as static files and `api/today.mjs` runs as a function. The session lives in the Vercel Runtime Cache, and the CDN shares each response across viewers.
+**Vercel**: import the repo and add `MASSIVE_API_KEY` as an environment variable, plus `DISPLAY_DELAY_MINUTES` if your plan allows real-time display. The page is served as static files and `api/today.mjs` runs as a function. The session lives in the Vercel Runtime Cache, and the CDN shares each response across viewers.
 
 The session refreshes on demand, at most once a minute, and only while the market is open.
 
