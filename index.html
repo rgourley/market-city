@@ -1567,6 +1567,8 @@ function tick() {
   }
   post.uniforms.time.value = now % 100;
 
+  // Replay speed means nothing while the city follows the clock, so the speed button hides in live mode.
+  if (speedBtn.hidden !== live) speedBtn.hidden = live;
   dayEl.innerHTML = `${d.label} · ${d.date}${live ? ` · <span class="live">● LIVE${d.delayMinutes ? `, ${d.delayMinutes} MIN DELAYED` : ""}</span>` : ""}`;
   clockEl.textContent = `${fmtClock(minute)} · vol ${d.rv[m].toFixed(0)} · traffic ${d.traffic[m].toFixed(1)}×${soundOn ? ` · ♪ ${music.section}` : ""}`;
   updateTip();
