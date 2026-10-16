@@ -70,10 +70,6 @@
   .sep { width: 1px; height: 18px; background: var(--line); }
   .controls.collapsed > :not(#collapse) { display: none; }
   .controls.collapsed { padding: 4px; }
-  /* The sound button shows while the browser still blocks sound. It sits left of the help icon. */
-  .sound-pill { position: absolute; top: 11px; right: 48px; font: 500 11px/1 var(--mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; cursor: pointer; backdrop-filter: blur(8px); }
-  .sound-pill:hover { border-color: rgba(255,255,255,.3); }
-  .sound-pill[hidden] { display: none; }
   .help { position: absolute; top: 10px; right: 14px; display: grid; place-items: center; padding: 4px; color: var(--ink); background: none; border: 0; border-radius: 6px; cursor: pointer; opacity: 0.8; }
   .help svg { width: 20px; height: 20px; filter: drop-shadow(0 1px 4px rgba(0,0,0,.8)); }
   .help:hover, .help[aria-expanded="true"] { opacity: 1; background: var(--panel); }
@@ -139,6 +135,7 @@
     <div class="day" id="day"></div>
     <div class="meta" id="clock"></div>
     <div class="hint build" id="buildNote" hidden></div>
+    <div class="hint" id="soundHint" hidden>♪ Click anywhere for sound</div>
   </div>
   <div id="tip"></div>
   <div class="loader" id="loader" role="status" aria-live="polite"><div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span id="loaderText">Loading market data…</span></div>
@@ -156,7 +153,6 @@
     <button id="collapse" aria-label="Hide controls" title="Hide controls (H)">▾</button>
   </div>
 
-  <button id="soundStart" class="sound-pill" type="button" hidden>♪ Turn on sound</button>
   <button id="key" class="help" aria-label="What am I looking at?" title="Key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
   <div class="legend" id="legend"></div>
 </div>
@@ -1254,7 +1250,7 @@ try { wantSound = localStorage.getItem("market-city-sound") !== "0"; } catch { /
 // ?sound=0 starts silent for this visit only (for screenshots and embeds). It does not change the saved choice.
 if (new URLSearchParams(location.search).get("sound") === "0") wantSound = false;
 const soundBtn = document.getElementById("sound");
-const soundStart = document.getElementById("soundStart");
+const soundHint = document.getElementById("soundHint");
 // Line icons for the sound button. The stroke uses the text color.
 const icon = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const SPEAKER = '<path d="M11 5 6 9H2v6h4l5 4z"/>';
@@ -1262,7 +1258,7 @@ const ICON_SOUND = icon(`${SPEAKER}<path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M
 const ICON_MUTED = icon(`${SPEAKER}<path d="m22 9-6 6"/><path d="m16 9 6 6"/>`);
 const audioCtx = () => window.Tone.getContext().rawContext;
 function syncSoundButton() {
-  soundStart.hidden = !(wantSound && !soundOn);
+  soundHint.hidden = !(wantSound && !soundOn);
   soundBtn.innerHTML = wantSound ? ICON_SOUND : ICON_MUTED;
   soundBtn.setAttribute("aria-pressed", String(wantSound));
   soundBtn.setAttribute("aria-label", wantSound ? "Mute" : "Unmute");
@@ -1300,9 +1296,8 @@ function onGesture(e) {
   setSound(true);
 }
 // Capture phase: the 3D view controls cannot stop the event before the page sees it.
-// A click, tap or key press anywhere on the page starts the sound. The button in the corner does the same.
+// A click, tap or key press anywhere on the page starts the sound. The hint in the corner says so until it plays.
 GESTURES.forEach((t) => addEventListener(t, onGesture, true));
-soundStart.onclick = (e) => { e.stopPropagation(); audioCtx().resume(); setSound(true); };
 // The page also tries to start at once. This works when the browser already allows sound for this site.
 if (wantSound) audioCtx().resume().then(() => { if (audioCtx().state === "running") setSound(true); }).catch(() => {});
 setTimeout(syncSoundButton, 500);
