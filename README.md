@@ -90,6 +90,6 @@ The session refreshes on demand: a request that finds the data older than a minu
 
 ## Data
 
-The repo holds no market data. `universe.json` lists the sectors, the 18 tickers in each, and the sample dates. The server builds the sample days and the market caps from your Massive key on the first request, about 1,050 calls, and caches them for a year. The live day costs about 210 calls to build, then one snapshot call every 30 seconds while the market is open.
+The repo holds no market data. `universe.json` lists the sectors, the 18 tickers in each, and the sample dates. The server builds the sample days and the market caps from your Massive key on the first request, about 1,050 calls, and caches them for a year. The live day costs about 210 calls to build, then one snapshot call a minute while the market is open, and nothing outside market hours.
 
 `constituents.json` is the S&P 500 with GICS sectors, from Wikipedia's list of S&P 500 companies. The 18 tickers per sector are the largest by market cap.
