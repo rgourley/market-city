@@ -1,14 +1,15 @@
 // The Vercel function for /api/examples: the sector list, the market caps and the sample days.
 // The data lives in the Vercel Runtime Cache for a year. The CDN keeps each response for a day.
 import { getCache } from "@vercel/functions";
-import universe from "../universe.json" with { type: "json" };
+import baseUniverse from "../universe.json" with { type: "json" };
 import { createExamples } from "../lib/examples.mjs";
+import { isLite, planUniverse, prefixedStore } from "../lib/plan.mjs";
 
 const cache = getCache({ namespace: "market-city" });
 const examples = createExamples({
   key: process.env.MASSIVE_API_KEY,
-  universe,
-  store: { get: (k) => cache.get(k), set: (k, v, ttl) => cache.set(k, v, { ttl, name: "market-city-examples" }) },
+  universe: planUniverse(baseUniverse, isLite(process.env)),
+  store: prefixedStore({ get: (k) => cache.get(k), set: (k, v, ttl) => cache.set(k, v, { ttl, name: "market-city-examples" }) }, isLite(process.env)),
 });
 
 // GET /api/examples gives the sectors, caps and sample dates. GET /api/examples?date=YYYY-MM-DD gives one sample day.
