@@ -640,7 +640,7 @@ scene.add(towerMesh, beaconMesh);
 pickables.push(towerMesh);
 const tmpColor = new THREE.Color();
 
-// The SPY tower stands in the plaza cell. It is a tapered shaft with an LED crown, like the Salesforce Tower.
+// The SPY tower stands in the plaza cell. It is a tapered shaft with an LED crown and a flat roof, like the Salesforce Tower.
 const plaza = new THREE.Vector3(city.blocks.SPY.x, 0, city.blocks.SPY.z);
 const SPIRE_H = 30, CROWN_FROM = 23;
 const radiusAt = (y) => 3.1 - 1.5 * Math.pow(y / SPIRE_H, 1.7);
@@ -659,7 +659,7 @@ function stripeTexture(vertical) {
 }
 const shaftStripes = stripeTexture(true); shaftStripes.repeat.set(28, 1);
 const spire = new THREE.Mesh(
-  new THREE.LatheGeometry([...profile(0, SPIRE_H, 0), new THREE.Vector2(0.9, SPIRE_H + 0.8), new THREE.Vector2(0, SPIRE_H + 1.1)], 48),
+  new THREE.LatheGeometry([...profile(0, SPIRE_H, 0), new THREE.Vector2(0, SPIRE_H)], 48),
   new THREE.MeshStandardMaterial({ color: "#151226", roughness: 0.25, metalness: 0.85, emissive: "#ffffff", emissiveMap: shaftStripes, emissiveIntensity: 0.25 }),
 );
 spire.position.copy(plaza);
