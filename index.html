@@ -1082,7 +1082,7 @@ async function loadToday() {
       s.pct.forEach((v, i) => (raw.pct[payload.from + i] = v));
       s.volRatio?.forEach((v, i) => (raw.volRatio[payload.from + i] = v));
     }
-    Object.assign(todayRaw, { label: payload.label, live: payload.live, lastMinute: payload.lastMinute, asOf: payload.asOf });
+    Object.assign(todayRaw, { label: payload.label, live: payload.live, lastMinute: payload.lastMinute, asOf: payload.asOf, delayMinutes: payload.delayMinutes });
   }
   if (!todayRaw.series?.SPY) throw new Error(`api/today has no SPY series for ${todayRaw.date}`);
   const series = Object.fromEntries(Object.entries(todayRaw.series).map(([t, s]) => [t, { pct: [...s.pct], ...(s.volRatio ? { volRatio: [...s.volRatio] } : {}) }]));
@@ -1090,7 +1090,9 @@ async function loadToday() {
   if (todayIdx < 0) { todayIdx = data.days.length; data.days.push(d); }
   else data.days[todayIdx] = d;
   const open = d.end >= 0;
-  todayOpt.textContent = open ? (d.live ? "● Live" : d.label) : "Today · opens 9:30";
+  // A delayed plan says so, so "Live" is never claimed for data that is 15 minutes old.
+  const liveLabel = d.delayMinutes ? `● Live, ${d.delayMinutes} min delayed` : "● Live";
+  todayOpt.textContent = open ? (d.live ? liveLabel : d.label) : "Today · opens 9:30";
   todayOpt.disabled = !open;
   if (dayIdx === todayIdx) { scrub.max = String(Math.max(0, d.end)); if (live) minute = d.end; }
   syncDayControls();
@@ -1475,7 +1477,7 @@ function tick() {
   }
   post.uniforms.time.value = now % 100;
 
-  dayEl.innerHTML = `${d.label} · ${d.date}${live ? ' · <span class="live">● LIVE</span>' : ""}`;
+  dayEl.innerHTML = `${d.label} · ${d.date}${live ? ` · <span class="live">● LIVE${d.delayMinutes ? `, ${d.delayMinutes} MIN DELAYED` : ""}</span>` : ""}`;
   clockEl.textContent = `${fmtClock(minute)} · vol ${d.rv[m].toFixed(0)} · traffic ${d.traffic[m].toFixed(1)}×${soundOn ? ` · ♪ ${music.section}` : ""}`;
   updateTip();
 
