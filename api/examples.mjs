@@ -1,5 +1,5 @@
 // The Vercel function for GET /api/examples: the sample days, the sector list and the market caps.
-// The data lives in the Vercel Runtime Cache for 30 days. The CDN keeps each response for a day.
+// The data lives in the Vercel Runtime Cache for a year. The CDN keeps each response for a day.
 import { getCache } from "@vercel/functions";
 import universe from "../universe.json" with { type: "json" };
 import { createExamples } from "../lib/examples.mjs";
