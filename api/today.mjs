@@ -7,6 +7,9 @@ import baseUniverse from "../universe.json" with { type: "json" };
 import { createToday } from "../lib/today.mjs";
 import { isLite, planUniverse, prefixedStore, trackedTickers } from "../lib/plan.mjs";
 
+// The cache client gives each read and write 500 ms by default. A read that times out returns null, the same as a miss,
+// and the server then rebuilds from Massive. The stored sessions are large, so the client gets 5 seconds.
+process.env.RUNTIME_CACHE_TIMEOUT ??= "5000";
 const cache = getCache({ namespace: "market-city" });
 // MASSIVE_PLAN=basic turns on lite mode for the free plan.
 const lite = isLite(process.env);

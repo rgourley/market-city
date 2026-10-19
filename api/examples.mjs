@@ -5,6 +5,9 @@ import baseUniverse from "../universe.json" with { type: "json" };
 import { createExamples } from "../lib/examples.mjs";
 import { isLite, planUniverse, prefixedStore } from "../lib/plan.mjs";
 
+// The cache client gives each read and write 500 ms by default. A read that times out returns null, the same as a miss,
+// and the server then rebuilds from Massive. The stored sessions are large, so the client gets 5 seconds.
+process.env.RUNTIME_CACHE_TIMEOUT ??= "5000";
 const cache = getCache({ namespace: "market-city" });
 const examples = createExamples({
   key: process.env.MASSIVE_API_KEY,
