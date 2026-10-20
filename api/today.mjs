@@ -11,13 +11,32 @@ import { isLite, planUniverse, prefixedStore, trackedTickers } from "../lib/plan
 // and the server then rebuilds from Massive. The stored sessions are large, so the client gets 5 seconds.
 process.env.RUNTIME_CACHE_TIMEOUT ??= "5000";
 const cache = getCache({ namespace: "market-city" });
+
+// The Runtime Cache can evict an entry at any time. On Hobby, all projects of the team share one cache.
+// Each function instance keeps its own copy of what it writes. When the cache has lost an entry, the instance
+// serves its copy and writes it back, so an eviction does not cause a rebuild from Massive.
+const local = new Map();
+async function get(k) {
+  const hit = await cache.get(k);
+  if (hit !== null && hit !== undefined) return hit;
+  const copy = local.get(k);
+  if (!copy || copy.expiresAt < Date.now()) return null;
+  console.warn({ key: k }, "runtime cache lost the entry; restoring this instance's copy");
+  await cache.set(k, copy.value, { ttl: copy.ttl, name: "market-city-session" });
+  return copy.value;
+}
+async function set(k, value, ttl) {
+  local.set(k, { value, ttl, expiresAt: Date.now() + ttl * 1000 });
+  await cache.set(k, value, { ttl, name: "market-city-session" });
+}
+
 // MASSIVE_PLAN=basic turns on lite mode for the free plan.
 const lite = isLite(process.env);
 const universe = planUniverse(baseUniverse, lite);
 const today = createToday({
   key: process.env.MASSIVE_API_KEY,
   tickers: trackedTickers(universe),
-  store: prefixedStore({ get: (k) => cache.get(k), set: (k, v, ttl) => cache.set(k, v, { ttl, name: "market-city-session" }) }, lite),
+  store: prefixedStore({ get, set }, lite),
   lite,
   displayDelayMinutes: Number(process.env.DISPLAY_DELAY_MINUTES ?? 15),
   waitUntil,
