@@ -66,7 +66,8 @@
   .hud .live { color: #ff4d4d; animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: 0.35; } }
   .controls button:disabled { opacity: 0.4; cursor: default; }
-  #tip { position: absolute; pointer-events: none; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; backdrop-filter: blur(8px); display: none; white-space: nowrap; }
+  #tip { position: absolute; pointer-events: none; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; backdrop-filter: blur(8px); white-space: nowrap; opacity: 0; transition: opacity .5s ease; }
+  #tip.on { opacity: 1; }
   #tip b { font-weight: 600; }
   .controls { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(10px); max-width: calc(100% - 32px); flex-wrap: nowrap; white-space: nowrap; font-size: 11px; }
   .controls button, .controls select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
@@ -1340,36 +1341,136 @@ const fmtPct = (p) => `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`;
 const fmtClock = (m) => { const t = 570 + Math.floor(m); const h = Math.floor(t / 60), mm = t % 60; return `${((h + 11) % 12) + 1}:${String(mm).padStart(2, "0")} ${h < 12 ? "AM" : "PM"} ET`; };
 
 // Hover shows the numbers for one tower.
+// While the camera circles on its own, a random tower shows its card for a few seconds.
 const tip = document.getElementById("tip");
-const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
-let hoverEvent = null;
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tipPoint = new THREE.Vector3();
+let hoverEvent = null, hovering = false, autoTip = null;
 renderer.domElement.addEventListener("pointermove", (e) => (hoverEvent = e));
-renderer.domElement.addEventListener("pointerleave", () => { hoverEvent = null; tip.style.display = "none"; });
-function updateTip() {
-  if (!hoverEvent) return;
-  const rect = renderer.domElement.getBoundingClientRect();
-  mouse.set(((hoverEvent.clientX - rect.left) / rect.width) * 2 - 1, -((hoverEvent.clientY - rect.top) / rect.height) * 2 + 1);
-  ray.setFromCamera(mouse, camera);
-  const hit = ray.intersectObjects(pickables, false)[0];
-  if (!hit) { tip.style.display = "none"; return; }
-  const t = hit.object === towerMesh ? towers[hit.instanceId] : hit.object.userData.tower;
+renderer.domElement.addEventListener("pointerleave", () => { hoverEvent = null; hovering = false; tip.classList.remove("on"); });
+// The card text for one tower, as parts with a CSS color variable. The first part is the ticker.
+function tipParts(t) {
   const d = data.days[dayIdx], m = Math.floor(minute);
-  if (!d?.series) { tip.style.display = "none"; return; }
-  if (!d.series[t.ticker]) {
-    tip.innerHTML = `<b>${t.ticker}</b> <span style="color:var(--muted)">${d.building ? "still loading" : `no data on ${d.date}`}</span>`;
-    tip.style.display = "block";
-    tip.style.left = `${hoverEvent.clientX - rect.left + 12}px`;
-    tip.style.top = `${hoverEvent.clientY - rect.top + 12}px`;
-    return;
-  }
+  if (!d?.series) return null;
+  if (!d.series[t.ticker]) return [{ text: t.ticker, color: "--ink" }, { text: ` ${d.building ? "still loading" : `no data on ${d.date}`}`, color: "--muted" }];
   const p = d.series[t.ticker].pct[m];
   const sectorP = t.sector.etf ? d.series[t.sector.etf]?.pct[m] : undefined;
-  const sec = sectorP !== undefined ? ` · ${t.sector.name} ${fmtPct(sectorP)}` : "";
-  tip.innerHTML = `<b>${t.ticker}</b> <span style="color:${p >= 0 ? "var(--up)" : "var(--down)"}">${fmtPct(p)}</span><span style="color:var(--muted)">${sec}</span>`;
-  tip.style.display = "block";
-  tip.style.left = `${hoverEvent.clientX - rect.left + 12}px`;
-  tip.style.top = `${hoverEvent.clientY - rect.top + 12}px`;
+  const parts = [{ text: t.ticker, color: "--ink" }, { text: ` ${fmtPct(p)}`, color: p >= 0 ? "--up" : "--down" }];
+  if (sectorP !== undefined) parts.push({ text: ` · ${t.sector.name} ${fmtPct(sectorP)}`, color: "--muted" });
+  return parts;
 }
+function showTip(t) {
+  const parts = tipParts(t);
+  if (!parts) { tip.classList.remove("on"); return; }
+  tip.innerHTML = parts.map((x, i) => (i === 0 ? `<b>${x.text}</b>` : `<span style="color:var(${x.color})">${x.text}</span>`)).join("");
+  tip.classList.add("on");
+}
+// The screen point of a tower top, in normalized device coordinates. Points outside -0.7..0.7 are near or past the edge.
+function towerTop(t) {
+  tipPoint.set(t.pos.x, t.h, t.pos.z).project(camera);
+  return tipPoint.z < 1 && Math.abs(tipPoint.x) < 0.7 && Math.abs(tipPoint.y) < 0.7 ? tipPoint : null;
+}
+
+// The idle card is a sign above the tower roof. Towers in front of it hide it.
+// The card renders in its own pass after the bloom and screen effects, so it stays solid and sharp.
+// Before that pass, the towers render again into the depth buffer only. That depth hides the card behind towers.
+// The card keeps one size on screen at any distance.
+const CARD_SCALE = 2;
+const card = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false, sizeAttenuation: false }));
+card.center.set(0.5, 0);
+card.visible = false;
+const cardScene = new THREE.Scene();
+cardScene.add(card);
+const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false });
+const depthTowers = new THREE.InstancedMesh(towerMesh.geometry, depthOnly, towerMesh.count);
+depthTowers.instanceMatrix = towerMesh.instanceMatrix;
+depthTowers.boundingSphere = towerMesh.boundingSphere;
+const depthSpire = new THREE.Mesh(spire.geometry, depthOnly);
+depthSpire.position.copy(spire.position);
+const depthScene = new THREE.Scene();
+depthScene.add(depthTowers, depthSpire);
+function renderCard() {
+  if (!card.visible) return;
+  renderer.autoClear = false;
+  renderer.clearDepth();
+  renderer.render(depthScene, camera);
+  renderer.render(cardScene, camera);
+  renderer.autoClear = true;
+}
+let cardKey = "", cardSize = [0, 0];
+// The card canvas draws at CARD_SCALE for sharp text. The outline is one path, so the nub joins the panel with no seam.
+function drawCard(parts) {
+  const css = getComputedStyle(document.documentElement);
+  const S = CARD_SCALE, padX = 8 * S, padY = 6 * S, lineH = 17 * S, nub = 6 * S, r = 6 * S;
+  const font = (i) => `${i === 0 ? 600 : 400} ${12 * S}px ${css.getPropertyValue("--mono")}`;
+  const c = document.createElement("canvas"), g = c.getContext("2d");
+  const widths = parts.map((x, i) => { g.font = font(i); return g.measureText(x.text).width; });
+  c.width = Math.ceil(widths.reduce((a, b) => a + b, 0) + 2 * padX + 2);
+  c.height = Math.ceil(lineH + 2 * padY + nub + 2);
+  const x0 = 1, y0 = 1, x1 = c.width - 1, y1 = c.height - 1 - nub, cx = c.width / 2;
+  g.beginPath();
+  g.moveTo(x0 + r, y0); g.arcTo(x1, y0, x1, y1, r); g.arcTo(x1, y1, x0, y1, r);
+  g.lineTo(cx + nub, y1); g.lineTo(cx, y1 + nub); g.lineTo(cx - nub, y1);
+  g.arcTo(x0, y1, x0, y0, r); g.arcTo(x0, y0, x1, y0, r); g.closePath();
+  g.fillStyle = "#05070c"; g.fill();
+  g.strokeStyle = "rgba(255, 255, 255, 0.14)"; g.lineWidth = S; g.stroke();
+  g.textBaseline = "middle";
+  let x = x0 + padX;
+  parts.forEach((p, i) => { g.font = font(i); g.fillStyle = css.getPropertyValue(p.color).trim(); g.fillText(p.text, x, y0 + padY + lineH / 2); x += widths[i]; });
+  card.material.map?.dispose();
+  card.material.map = new THREE.CanvasTexture(c);
+  card.material.map.colorSpace = THREE.SRGBColorSpace;
+  card.material.needsUpdate = true;
+  cardSize = [c.width / S, c.height / S];
+}
+function updateCard(rect) {
+  const active = !hovering && autoTip && controls.autoRotate && performance.now() < autoTip.until;
+  const parts = active ? tipParts(autoTip.tower) : null;
+  if (parts) {
+    const key = parts.map((x) => x.text).join("") + themeEl.value;
+    if (key !== cardKey) { drawCard(parts); cardKey = key; }
+    card.position.set(autoTip.tower.pos.x, autoTip.tower.h + 0.2, autoTip.tower.pos.z);
+  } else autoTip = null;
+  // The card fades in and out over about half a second.
+  card.material.opacity += ((parts ? 1 : 0) - card.material.opacity) * 0.08;
+  card.visible = card.material.opacity > 0.01;
+  // A scale of 2 / (P[5] * viewport height) per CSS pixel keeps the size fixed on screen. P is the projection matrix.
+  const k = 2 / (camera.projectionMatrix.elements[5] * rect.height);
+  card.scale.set(cardSize[0] * k, cardSize[1] * k, 1);
+}
+function updateTip() {
+  const rect = renderer.domElement.getBoundingClientRect();
+  hovering = false;
+  if (hoverEvent) {
+    mouse.set(((hoverEvent.clientX - rect.left) / rect.width) * 2 - 1, -((hoverEvent.clientY - rect.top) / rect.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (hit) {
+      hovering = true;
+      showTip(hit.object === towerMesh ? towers[hit.instanceId] : hit.object.userData.tower);
+      tip.style.left = `${hoverEvent.clientX - rect.left + 12}px`;
+      tip.style.top = `${hoverEvent.clientY - rect.top + 12}px`;
+    }
+  }
+  if (!hovering) tip.classList.remove("on");
+  updateCard(rect);
+}
+// A roof is in view when a ray from the camera to the roof hits that tower first.
+const roofRay = new THREE.Raycaster();
+function roofVisible(t) {
+  tipPoint.set(t.pos.x, t.h, t.pos.z);
+  roofRay.set(camera.position, tipPoint.sub(camera.position).normalize());
+  const hit = roofRay.intersectObjects(pickables, false)[0];
+  return hit?.object === towerMesh && towers[hit.instanceId] === t;
+}
+// Every 10 seconds of idle orbit, one tower with data and a roof in view shows its card for 5 seconds.
+// Towers can pass in front of the card while the camera circles. ?cards=0 turns the idle cards off.
+const idleCards = params.get("cards") !== "0";
+setInterval(() => {
+  const d = data.days[dayIdx];
+  if (!idleCards || hovering || !controls.autoRotate || !d?.series) return;
+  const ready = towers.filter((t) => d.series[t.ticker] && towerTop(t) && roofVisible(t));
+  if (ready.length) autoTip = { tower: ready[Math.floor(Math.random() * ready.length)], until: performance.now() + 5000 };
+}, 10000);
 
 // ---------- Resize ----------
 function resize() {
@@ -1593,7 +1694,7 @@ function tick() {
   updateTip();
 
   snap = false;
-  if (heroVisible) composer.render();
+  if (heroVisible) { composer.render(); renderCard(); }
   requestAnimationFrame(tick);
 }
 tick();
