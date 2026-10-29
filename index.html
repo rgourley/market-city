@@ -1364,11 +1364,6 @@ function showTip(t) {
   tip.innerHTML = parts.map((x, i) => (i === 0 ? `<b>${x.text}</b>` : `<span style="color:var(${x.color})">${x.text}</span>`)).join("");
   tip.classList.add("on");
 }
-// The screen point of a tower top, in normalized device coordinates. Points outside -0.7..0.7 are near or past the edge.
-function towerTop(t) {
-  tipPoint.set(t.pos.x, t.h, t.pos.z).project(camera);
-  return tipPoint.z < 1 && Math.abs(tipPoint.x) < 0.7 && Math.abs(tipPoint.y) < 0.7 ? tipPoint : null;
-}
 
 // The idle card is a sign above the tower roof. Towers in front of it hide it.
 // The card renders in its own pass after the bloom and screen effects, so it stays solid and sharp.
@@ -1379,7 +1374,13 @@ const card = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, opac
 card.center.set(0.5, 0);
 card.visible = false;
 const cardScene = new THREE.Scene();
-cardScene.add(card);
+// A leader line joins the card to the tower roof.
+const leader = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+  new THREE.LineBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false }),
+);
+leader.frustumCulled = false;
+cardScene.add(card, leader);
 const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false });
 const depthTowers = new THREE.InstancedMesh(towerMesh.geometry, depthOnly, towerMesh.count);
 depthTowers.instanceMatrix = towerMesh.instanceMatrix;
@@ -1397,19 +1398,18 @@ function renderCard() {
   renderer.autoClear = true;
 }
 let cardKey = "", cardSize = [0, 0];
-// The card canvas draws at CARD_SCALE for sharp text. The outline is one path, so the nub joins the panel with no seam.
+// The card canvas draws at CARD_SCALE for sharp text. The leader line meets the center of the bottom edge.
 function drawCard(parts) {
   const css = getComputedStyle(document.documentElement);
-  const S = CARD_SCALE, padX = 8 * S, padY = 6 * S, lineH = 17 * S, nub = 6 * S, r = 6 * S;
+  const S = CARD_SCALE, padX = 8 * S, padY = 6 * S, lineH = 17 * S, r = 6 * S;
   const font = (i) => `${i === 0 ? 600 : 400} ${12 * S}px ${css.getPropertyValue("--mono")}`;
   const c = document.createElement("canvas"), g = c.getContext("2d");
   const widths = parts.map((x, i) => { g.font = font(i); return g.measureText(x.text).width; });
   c.width = Math.ceil(widths.reduce((a, b) => a + b, 0) + 2 * padX + 2);
-  c.height = Math.ceil(lineH + 2 * padY + nub + 2);
-  const x0 = 1, y0 = 1, x1 = c.width - 1, y1 = c.height - 1 - nub, cx = c.width / 2;
+  c.height = Math.ceil(lineH + 2 * padY + 2);
+  const x0 = 1, y0 = 1, x1 = c.width - 1, y1 = c.height - 1;
   g.beginPath();
   g.moveTo(x0 + r, y0); g.arcTo(x1, y0, x1, y1, r); g.arcTo(x1, y1, x0, y1, r);
-  g.lineTo(cx + nub, y1); g.lineTo(cx, y1 + nub); g.lineTo(cx - nub, y1);
   g.arcTo(x0, y1, x0, y0, r); g.arcTo(x0, y0, x1, y0, r); g.closePath();
   g.fillStyle = "#05070c"; g.fill();
   g.strokeStyle = "rgba(255, 255, 255, 0.14)"; g.lineWidth = S; g.stroke();
@@ -1421,6 +1421,7 @@ function drawCard(parts) {
   card.material.map.colorSpace = THREE.SRGBColorSpace;
   card.material.needsUpdate = true;
   cardSize = [c.width / S, c.height / S];
+  leader.material.color.set(css.getPropertyValue("--text-2").trim());
 }
 function updateCard(rect) {
   const active = !hovering && autoTip && controls.autoRotate && performance.now() < autoTip.until;
@@ -1428,11 +1429,16 @@ function updateCard(rect) {
   if (parts) {
     const key = parts.map((x) => x.text).join("") + themeEl.value;
     if (key !== cardKey) { drawCard(parts); cardKey = key; }
-    card.position.set(autoTip.tower.pos.x, autoTip.tower.h + 0.2, autoTip.tower.pos.z);
+    const t = autoTip.tower, a = autoTip.anchor;
+    card.position.copy(a);
+    leader.geometry.attributes.position.setXYZ(0, t.pos.x, t.h, t.pos.z);
+    leader.geometry.attributes.position.setXYZ(1, a.x, a.y, a.z);
+    leader.geometry.attributes.position.needsUpdate = true;
   } else autoTip = null;
   // The card fades in and out over about half a second.
   card.material.opacity += ((parts ? 1 : 0) - card.material.opacity) * 0.08;
-  card.visible = card.material.opacity > 0.01;
+  card.visible = leader.visible = card.material.opacity > 0.01;
+  leader.material.opacity = card.material.opacity * 0.7;
   // A scale of 2 / (P[5] * viewport height) per CSS pixel keeps the size fixed on screen. P is the projection matrix.
   const k = 2 / (camera.projectionMatrix.elements[5] * rect.height);
   card.scale.set(cardSize[0] * k, cardSize[1] * k, 1);
@@ -1454,22 +1460,31 @@ function updateTip() {
   if (!hovering) tip.classList.remove("on");
   updateCard(rect);
 }
-// A roof is in view when a ray from the camera to the roof hits that tower first.
-const roofRay = new THREE.Raycaster();
-function roofVisible(t) {
-  tipPoint.set(t.pos.x, t.h, t.pos.z);
-  roofRay.set(camera.position, tipPoint.sub(camera.position).normalize());
-  const hit = roofRay.intersectObjects(pickables, false)[0];
-  return hit?.object === towerMesh && towers[hit.instanceId] === t;
+// The card floats 2 units above the tallest tower within 10 units, and at least 4 units above its own roof.
+// Short towers in a tall block get their card in clear air.
+function cardAnchor(t) {
+  const near = towers.filter((o) => (o.pos.x - t.pos.x) ** 2 + (o.pos.z - t.pos.z) ** 2 < 100);
+  return new THREE.Vector3(t.pos.x, Math.max(t.h + 4, ...near.map((o) => o.h + 2)), t.pos.z);
 }
-// Every 10 seconds of idle orbit, one tower with data and a roof in view shows its card for 5 seconds.
+// An anchor is in view when it is near the screen center and no tower is between it and the camera.
+// Points outside -0.7..0.7 in normalized device coordinates are near or past the edge.
+const anchorRay = new THREE.Raycaster();
+function anchorInView(a) {
+  tipPoint.copy(a).project(camera);
+  if (tipPoint.z >= 1 || Math.abs(tipPoint.x) > 0.7 || Math.abs(tipPoint.y) > 0.7) return false;
+  const dist = camera.position.distanceTo(a);
+  anchorRay.set(camera.position, tipPoint.copy(a).sub(camera.position).normalize());
+  anchorRay.far = dist;
+  return anchorRay.intersectObjects(pickables, false).length === 0;
+}
+// Every 10 seconds of idle orbit, one tower with data and its card in view shows the card for 5 seconds.
 // Towers can pass in front of the card while the camera circles. ?cards=0 turns the idle cards off.
 const idleCards = params.get("cards") !== "0";
 setInterval(() => {
   const d = data.days[dayIdx];
   if (!idleCards || hovering || !controls.autoRotate || !d?.series) return;
-  const ready = towers.filter((t) => d.series[t.ticker] && towerTop(t) && roofVisible(t));
-  if (ready.length) autoTip = { tower: ready[Math.floor(Math.random() * ready.length)], until: performance.now() + 5000 };
+  const ready = towers.filter((t) => d.series[t.ticker]).map((t) => ({ tower: t, anchor: cardAnchor(t) })).filter((x) => anchorInView(x.anchor));
+  if (ready.length) autoTip = { ...ready[Math.floor(Math.random() * ready.length)], until: performance.now() + 5000 };
 }, 10000);
 
 // ---------- Resize ----------
