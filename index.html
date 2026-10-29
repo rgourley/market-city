@@ -45,6 +45,15 @@
   #frame { position: relative; width: 100%; height: min(78vh, 860px); min-height: 420px; overflow: hidden; background: var(--bg); font: 12px/1.4 var(--mono); }
   #frame:fullscreen { height: 100vh; }
   #frame:-webkit-full-screen { height: 100vh; width: 100vw; }
+  /* The URL tag shows only in full screen, so a screen or a recording names the page. */
+  .url-tag { position: absolute; top: 15px; right: 52px; display: none; color: var(--text-2); font-size: 11px; letter-spacing: .04em; text-decoration: none; text-shadow: 0 1px 8px rgba(0,0,0,.8); }
+  .url-tag:hover { color: var(--ink); }
+  #frame:fullscreen .url-tag { display: block; }
+  #frame:-webkit-full-screen .url-tag { display: block; }
+  /* ?full makes the city fill the browser window. The page under the hero stays hidden. */
+  html.full body { overflow: hidden; }
+  html.full #frame { height: 100dvh; min-height: 0; }
+  html.full .url-tag { display: block; }
   canvas { display: block; }
   .hud { position: absolute; top: 14px; left: 16px; pointer-events: none; text-shadow: 0 1px 8px rgba(0,0,0,.8); }
   .hud .credit { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--muted); font-size: 10px; text-decoration: none; pointer-events: auto; }
@@ -129,6 +138,7 @@
 </style>
 </head>
 <body>
+<script>if (new URLSearchParams(location.search).has("full")) document.documentElement.classList.add("full");</script>
 <div id="frame">
   <div class="hud">
     <a class="credit" href="https://massive.com" target="_blank" rel="noopener">Data provided by <svg viewBox="0 0 680 76" fill="currentColor" aria-label="Massive" role="img"><path d="M0 0V76H28V28L50 76H78L100 28V76H128V0H86L64 48L42 0H0Z"/><path d="M164 76H132L168 0H198L234 76H202L184 28L164 76Z"/><path d="M266 28H310C319.333 28 338 35.4 338 53C338 70.6 319.333 76 310 76H238V56H310V48H266C256.667 48 238 40.6 238 23C238 5.4 256.667 0 266 0H338V20H266V28Z"/><path d="M370 28H414C423.333 28 442 35.4 442 53C442 70.6 423.333 76 414 76H342V56H414V48H370C360.667 48 342 40.6 342 23C342 5.4 360.667 0 370 0H442V20H370V28Z"/><path d="M480 0H450V76H480V0Z"/><path d="M516 0H484L520 76H550L586 0H554L536 48L516 0Z"/><path d="M590 76H680V56H620V48H680V28H620V20H680V0H590V76Z"/></svg></a>
@@ -155,6 +165,7 @@
 
   <button id="key" class="help" aria-label="What am I looking at?" title="Key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
   <div class="legend" id="legend"></div>
+  <a class="url-tag" href="https://www.robertcreative.com/city">robertcreative.com/city</a>
 </div>
 
 <main class="wrap">
