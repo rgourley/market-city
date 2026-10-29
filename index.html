@@ -1208,7 +1208,15 @@ let savedTheme = null;
 try { savedTheme = localStorage.getItem("market-city-theme"); } catch { /* Storage is optional. */ }
 const startTheme = [params.get("theme"), savedTheme, "synthwave"].find((k) => k && THEMES[k]);
 themeEl.value = startTheme;
-themeEl.onchange = () => { applyTheme(themeEl.value); restyleMusic(); };
+// A theme change also writes ?theme= to the address bar, so the current link opens the same theme.
+themeEl.onchange = () => {
+  applyTheme(themeEl.value); restyleMusic();
+  const url = new URL(location.href);
+  url.searchParams.set("theme", themeEl.value);
+  // Flags such as ?full keep their bare form, without a trailing "=".
+  url.search = url.searchParams.toString().replace(/=(?=&|$)/g, "");
+  history.replaceState(null, "", url);
+};
 applyTheme(startTheme);
 
 const playBtn = document.getElementById("play");
